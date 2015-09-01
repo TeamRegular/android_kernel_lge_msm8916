@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -220,6 +220,16 @@
 #define CFG_IMPS_MAXIMUM_SLEEP_TIME_MAX        ( 65535 )
 #define CFG_IMPS_MAXIMUM_SLEEP_TIME_DEFAULT    ( 15 )
 
+/*If there is scan on STA interface back to back with
+ *time diff nDeferScanTimeInterval, driver will not
+ *issue a new scan. Driver will return cached result to kernel.
+ *the interval is in msec
+ */
+#define CFG_DEFER_SCAN_TIME_INTERVAL            "gDeferScanTimeInterval"
+#define CFG_DEFER_SCAN_TIME_INTERVAL_MIN        ( 0 )
+#define CFG_DEFER_SCAN_TIME_INTERVAL_MAX        ( 65535 )
+#define CFG_DEFER_SCAN_TIME_INTERVAL_DEFAULT    ( 2000  )
+
 //BMPS = BeaconModePowerSave
 #define CFG_ENABLE_BMPS_NAME                   "gEnableBmps"
 #define CFG_ENABLE_BMPS_MIN                    ( 0 )
@@ -261,6 +271,18 @@
 #define CFG_ENABLE_DYNAMIC_RA_START_RATE_MIN     ( 0 )
 #define CFG_ENABLE_DYNAMIC_RA_START_RATE_MAX     ( 1 )
 #define CFG_ENABLE_DYNAMIC_RA_START_RATE_DEFAULT ( 0 )
+
+/* Bit mask value to enable RTS/CTS for different modes
+ * for 2.4 GHz, HT20 - 0x0001, for 2.4 GHz, HT40 - 0x0002
+ * for 2.4 GHz, VHT20 - 0x0004, for 2.4 GHz, VHT40 - 0x0008
+ * for 5 GHz, HT20 - 0x0100, for 5 GHz, HT40 - 0x0200
+ * for 5 GHz, VHT20 - 0x0400, for 5 GHz, VHT40 - 0x0800
+ * for 5 GHz, VHT80 - 0x1000
+ */
+#define CFG_ENABLE_RTSCTS_HTVHT_NAME             "gEnableRtsCtsHtVht"
+#define CFG_ENABLE_RTSCTS_HTVHT_MIN              ( 0x0000 )
+#define CFG_ENABLE_RTSCTS_HTVHT_MAX              ( 0x1f0f )
+#define CFG_ENABLE_RTSCTS_HTVHT_DEFAULT          ( 0x0000 )
 
 #define CFG_AUTO_BMPS_TIMER_VALUE_NAME         "gAutoBmpsTimerValue" 
 #define CFG_AUTO_BMPS_TIMER_VALUE_MIN          ( 1000 )
@@ -508,7 +530,7 @@ typedef enum
 
 #define CFG_AP_KEEP_ALIVE_PERIOD_NAME          "gApKeepAlivePeriod"
 #define CFG_AP_KEEP_ALIVE_PERIOD_MIN           ( 3 )
-#define CFG_AP_KEEP_ALIVE_PERIOD_MAX           ( 20 )
+#define CFG_AP_KEEP_ALIVE_PERIOD_MAX           ( 255 )
 #define CFG_AP_KEEP_ALIVE_PERIOD_DEFAULT       ( 5 )
 
 #define CFG_GO_KEEP_ALIVE_PERIOD_NAME          "gGoKeepAlivePeriod"
@@ -1389,9 +1411,16 @@ typedef enum
 #define CFG_ENABLE_BYPASS_11D_MAX                  ( 1 )
 #define CFG_ENABLE_BYPASS_11D_DEFAULT              ( 1 )
 
+/*
+ * gEnableDFSChnlScan
+ * 0: disable scan on DFS channels
+ * 1: enables passive scan on DFS channels
+ * 2: enables active scan on DFS channels for static list.
+ *    Static or cfg list is the channel list set by ioctl SETROAMSCANCHANNELS.
+*/
 #define CFG_ENABLE_DFS_CHNL_SCAN_NAME              "gEnableDFSChnlScan"
 #define CFG_ENABLE_DFS_CHNL_SCAN_MIN               ( 0 )
-#define CFG_ENABLE_DFS_CHNL_SCAN_MAX               ( 1 )
+#define CFG_ENABLE_DFS_CHNL_SCAN_MAX               ( 2 )
 #define CFG_ENABLE_DFS_CHNL_SCAN_DEFAULT           ( 1 )
 
 #define CFG_ENABLE_DFS_PNO_CHNL_SCAN_NAME              "gEnableDFSPnoChnlScan"
@@ -1876,6 +1905,18 @@ static __inline tANI_U32 defHddRateToDefCfgRate( tANI_U32 defRateIndex )
 #define CFG_TDLS_SCAN_COEX_SUPPORT_ENABLE_MIN        (0)
 #define CFG_TDLS_SCAN_COEX_SUPPORT_ENABLE_MAX        (1)
 #define CFG_TDLS_SCAN_COEX_SUPPORT_ENABLE_DEFAULT    (0)
+
+
+/* if gEnableTDLSScan
+ * 0: Same as gEnableTDLSScanCoexistence ; driver will do disconnect if
+ * Peer is not buffer STA capable.
+ * 1: Dut will scan in all cases.
+ * 2: If peer is not buffer STA capable, use CTS2self to do scan.
+*/
+#define CFG_TDLS_SCAN_ENABLE            "gEnableTDLSScan"
+#define CFG_TDLS_SCAN_ENABLE_MIN        (0)
+#define CFG_TDLS_SCAN_ENABLE_MAX        (2)
+#define CFG_TDLS_SCAN_ENABLE_DEFAULT    (0)
 #endif
 
 #ifdef WLAN_FEATURE_LINK_LAYER_STATS
@@ -1952,7 +1993,7 @@ static __inline tANI_U32 defHddRateToDefCfgRate( tANI_U32 defRateIndex )
 #define CFG_VHT_AMPDU_LEN_EXP_NAME          "gVhtMaxAmpduLenExp"
 #define CFG_VHT_AMPDU_LEN_EXP_MIN           ( 0 )
 #define CFG_VHT_AMPDU_LEN_EXP_MAX           ( 7 )
-#define CFG_VHT_AMPDU_LEN_EXP_DEFAULT       ( 3 )
+#define CFG_VHT_AMPDU_LEN_EXP_DEFAULT       ( 7 )
 
 #endif
 
@@ -2131,20 +2172,20 @@ This feature requires the dependent cfg.ini "gRoamPrefer5GHz" set to 1 */
  */
 #define CFG_ASD_PROBE_INTERVAL_NAME                     "gAsdProbeInterval"
 #define CFG_ASD_PROBE_INTERVAL_DEFAULT                  (50)
-#define CFG_ASD_PROBE_INTERVAL_MIN                      (10)
-#define CFG_ASD_PROBE_INTERVAL_MAX                      (100)
+#define CFG_ASD_PROBE_INTERVAL_MIN                      (1)
+#define CFG_ASD_PROBE_INTERVAL_MAX                      (500)
 
 /* RSSI Threshold used to trigger probing activity/selection process*/
 #define CFG_ASD_TRIGGER_THRESHOLD_NAME                  "gAsdTriggerThreshold"
-#define CFG_ASD_TRIGGER_THRESHOLD_DEFAULT               (-75)
-#define CFG_ASD_TRIGGER_THRESHOLD_MIN                   (-120)
-#define CFG_ASD_TRIGGER_THRESHOLD_MAX                   (0)
+#define CFG_ASD_TRIGGER_THRESHOLD_DEFAULT               (-60)
+#define CFG_ASD_TRIGGER_THRESHOLD_MIN                   (-100)
+#define CFG_ASD_TRIGGER_THRESHOLD_MAX                   (-10)
 
 /*RSSI Hysteresis Threshold for RSSI-RTT*/
 #define CFG_ASD_RTT_RSSI_HYST_THRESHOLD_NAME             "gAsdRTTRssiHystThreshold"
-#define CFG_ASD_RTT_RSSI_HYST_THRESHOLD_DEFAULT          (50)
+#define CFG_ASD_RTT_RSSI_HYST_THRESHOLD_DEFAULT          (3)
 #define CFG_ASD_RTT_RSSI_HYST_THRESHOLD_MIN              (0)
-#define CFG_ASD_RTT_RSSI_HYST_THRESHOLD_MAX              (100)
+#define CFG_ASD_RTT_RSSI_HYST_THRESHOLD_MAX              (5)
 
 //Enable debug for remain on channel issues
 #define CFG_DEBUG_P2P_REMAIN_ON_CHANNEL_NAME    "gDebugP2pRemainOnChannel"
@@ -2157,7 +2198,21 @@ This feature requires the dependent cfg.ini "gRoamPrefer5GHz" set to 1 */
 #define CFG_CTS2S_DURING_BTC_SCO_MIN            WNI_CFG_BTC_CTS2S_DURING_SCO_STAMIN
 #define CFG_CTS2S_DURING_BTC_SCO_MAX            WNI_CFG_BTC_CTS2S_DURING_SCO_STAMAX
 
+#define CFG_BTC_FAST_WLAN_CONN_PREF             "gBtcFastWlanConnPref"
+#define CFG_BTC_FAST_WLAN_CONN_PREF_DEFAULT     ( 1 )
+#define CFG_BTC_FAST_WLAN_CONN_PREF_MIN         ( 0 )
+#define CFG_BTC_FAST_WLAN_CONN_PREF_MAX         ( 1 )
 
+#define CFG_BTC_STATIC_OPP_WLAN_IDLE_WLAN_LEN             "gBtcStaticOppWlanIdleWlanLen"
+#define CFG_BTC_STATIC_OPP_WLAN_IDLE_WLAN_LEN_DEFAULT     ( 40000 )
+#define CFG_BTC_STATIC_OPP_WLAN_IDLE_WLAN_LEN_MIN         ( 0 )
+#define CFG_BTC_STATIC_OPP_WLAN_IDLE_WLAN_LEN_MAX         ( 250000 )
+
+
+#define CFG_BTC_STATIC_OPP_WLAN_IDLE_BT_LEN             "gBtcStaticOppWlanIdleBtLen"
+#define CFG_BTC_STATIC_OPP_WLAN_IDLE_BT_LEN_DEFAULT     ( 40000 )
+#define CFG_BTC_STATIC_OPP_WLAN_IDLE_BT_LEN_MIN         ( 0 )
+#define CFG_BTC_STATIC_OPP_WLAN_IDLE_BT_LEN_MAX         ( 250000 )
 /*
  * Connection related log Enable/Disable.
  * 0x1 - Enable mgmt pkt logs (no probe req/rsp).
@@ -2215,6 +2270,11 @@ This feature requires the dependent cfg.ini "gRoamPrefer5GHz" set to 1 */
 #define CFG_WLAN_LOGGING_NUM_BUF_MAX      ( 64 )
 #define CFG_WLAN_LOGGING_NUM_BUF_DEFAULT  ( 32 )
 #endif //WLAN_LOGGING_SOCK_SVC_ENABLE
+
+#define CFG_IGNORE_PEER_ERP_INFO_NAME      "gIgnorePeerErpInfo"
+#define CFG_IGNORE_PEER_ERP_INFO_MIN       ( 0 )
+#define CFG_IGNORE_PEER_ERP_INFO_MAX       ( 1 )
+#define CFG_IGNORE_PEER_ERP_INFO_DEFAULT   ( 0 )
 
 #define CFG_INITIAL_DWELL_TIME_NAME            "gInitialDwellTime"
 #define CFG_INITIAL_DWELL_TIME_DEFAULT         (0)
@@ -2374,6 +2434,39 @@ This feature requires the dependent cfg.ini "gRoamPrefer5GHz" set to 1 */
 #define CFG_BURST_MODE_BE_TXOP_VALUE_MAX       ( 12288 )
 #define CFG_BURST_MODE_BE_TXOP_VALUE_DEFAULT   ( 0 )
 
+#define CFG_BTC_ENABLE_IND_TIMER_VALUE          "gBtcEnableIndTimerVal"
+#define CFG_BTC_ENABLE_IND_TIMER_VALUE_MIN     ( 5 )
+#define CFG_BTC_ENABLE_IND_TIMER_VALUE_MAX     ( 60 )
+#define CFG_BTC_ENABLE_IND_TIMER_VALUE_DEFAULT ( 60 )
+
+#define CFG_P2P_LISTEN_DEFER_INTERVAL_NAME     "gP2PListenDeferInterval"
+#define CFG_P2P_LISTEN_DEFER_INTERVAL_MIN      ( 100 )
+#define CFG_P2P_LISTEN_DEFER_INTERVAL_MAX      ( 200 )
+#define CFG_P2P_LISTEN_DEFER_INTERVAL_DEFAULT  ( 100 )
+
+#define CFG_TOGGLE_ARP_BDRATES_NAME       "gToggleArpBDRates"
+#define CFG_TOGGLE_ARP_BDRATES_MIN         0
+#define CFG_TOGGLE_ARP_BDRATES_MAX         1
+#define CFG_TOGGLE_ARP_BDRATES_DEFAULT     0
+
+
+
+/*
+ * If within gLinkFailTimeout period(values is mentioned in msec) if FW
+ * doesn't receive acks for gLinkFailTxCnt number of packets, then link will
+ * be disconnected.
+ */
+
+#define CFG_LINK_FAIL_TIMEOUT_NAME    "gLinkFailTimeout"
+#define CFG_LINK_FAIL_TIMEOUT_MIN     ( 1000 )
+#define CFG_LINK_FAIL_TIMEOUT_MAX     ( 60000 )
+#define CFG_LINK_FAIL_TIMEOUT_DEF     ( 6000 )
+
+#define CFG_LINK_FAIL_TX_CNT_NAME    "gLinkFailTxCnt"
+#define CFG_LINK_FAIL_TX_CNT_MIN     ( 50 )
+#define CFG_LINK_FAIL_TX_CNT_MAX     ( 1000 )
+#define CFG_LINK_FAIL_TX_CNT_DEF     ( 200 )
+
 /*--------------------------------------------------------------------------- 
   Type declarations
   -------------------------------------------------------------------------*/ 
@@ -2393,6 +2486,7 @@ typedef struct
    v_BOOL_t      ShortSlotTimeEnabled;
    v_BOOL_t      Is11dSupportEnabled;
    v_BOOL_t      Is11hSupportEnabled;
+   v_U32_t       nDeferScanTimeInterval;
    v_BOOL_t      fEnforce11dChannels;
    v_BOOL_t      fSupplicantCountryCodeHasPriority;
    v_BOOL_t      fEnforceCountryCodeMatch;
@@ -2744,6 +2838,7 @@ typedef struct
    v_U32_t                     fEnableTDLSOffChannel;
    v_U32_t                     fEnableTDLSWmmMode;
    v_BOOL_t                    fEnableTDLSScanCoexSupport;
+   v_BOOL_t                    fEnableTDLSScan;
 #endif
 #ifdef WLAN_FEATURE_LINK_LAYER_STATS
    v_BOOL_t                    fEnableLLStats;
@@ -2809,7 +2904,7 @@ typedef struct
 #endif
    char                        overrideCountryCode[4];
    v_U32_t                     gAsdProbeInterval;
-   v_U32_t                     gAsdTriggerThreshold;
+   v_S7_t                      gAsdTriggerThreshold;
    v_U32_t                     gAsdRTTRssiHystThreshold;
    v_BOOL_t                    debugP2pRemainOnChannel;
    v_U32_t                     cfgBtcCTS2SduringSCO;
@@ -2831,7 +2926,7 @@ typedef struct
    v_U32_t                     wlanLoggingFEToConsole;
    v_U32_t                     wlanLoggingNumBuf;
 #endif
-
+   v_BOOL_t                    ignorePeerErpInfo;
    v_BOOL_t                    initialScanSkipDFSCh;
    v_U32_t                     cfgBtcFatalHidnSniffBlkGuidance;
    v_U32_t                     cfgBtcCriticalHidnSniffBlkGuidance;
@@ -2861,6 +2956,15 @@ typedef struct
    v_U8_t                      acsScanBandPreference;
    v_U16_t                     acsBandSwitchThreshold;
    v_U32_t                     enableDynamicRAStartRate;
+   v_U32_t                     enableRtsCtsHtVht;
+   v_U8_t                      btcEnableIndTimerVal;
+   v_BOOL_t                    btcFastWlanConnPref;
+   v_U16_t                     gP2PListenDeferInterval;
+   v_BOOL_t                    toggleArpBDRates;
+   v_U32_t                     linkFailTimeout;
+   v_U32_t                     linkFailTxCnt;
+   v_U32_t                     btcStaticOppWlanIdleWlanLen;
+   v_U32_t                     btcStaticOppWlanIdleBtLen;
 } hdd_config_t;
 /*--------------------------------------------------------------------------- 
   Function declarations and documenation

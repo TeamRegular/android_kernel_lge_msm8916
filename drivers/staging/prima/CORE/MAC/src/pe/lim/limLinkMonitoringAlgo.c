@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -38,7 +38,7 @@
  */
 
 #include "aniGlobal.h"
-#include "wniCfgSta.h"
+#include "wniCfg.h"
 #include "cfgApi.h"
 
 
@@ -222,7 +222,8 @@ limDeleteStaContext(tpAniSirGlobal pMac, tpSirMsgQ limMsg)
 
                        sirCopyMacAddr(pMac->lim.gLimHeartBeatApMac[apCount],pStaDs->staAddr);
                     }
-                    pStaDs->mlmStaContext.disassocReason = eSIR_MAC_UNSPEC_FAILURE_REASON;
+                    pStaDs->mlmStaContext.disassocReason =
+                        eSIR_MAC_DISASSOC_DUE_TO_INACTIVITY_REASON;
                     pStaDs->mlmStaContext.cleanupTrigger = eLIM_LINK_MONITORING_DEAUTH;
 
                    /** Set state to mlm State to eLIM_MLM_WT_DEL_STA_RSP_STATE

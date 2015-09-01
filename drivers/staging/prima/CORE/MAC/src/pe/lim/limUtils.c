@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015. The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -57,7 +57,7 @@
 #include "limSession.h"
 #include "vos_nvitem.h"
 #ifdef WLAN_FEATURE_11W
-#include "wniCfgAp.h"
+#include "wniCfg.h"
 #endif
 
 /* Static global used to mark situations where pMac->lim.gLimTriggerBackgroundScanDuringQuietBss is SET
@@ -83,6 +83,10 @@ static const tANI_U8 aUnsortedChannelList[]= {52,56,60,64,100,104,108,112,116,
 #define SUCCESS 1                   //defined temporarily for BT-AMP
 
 #define MAX_BA_WINDOW_SIZE_FOR_CISCO 25
+#define MAX_DTIM_PERIOD 15
+#define MAX_DTIM_COUNT  15
+#define DTIM_PERIOD_DEFAULT 1
+#define DTIM_COUNT_DEFAULT  1
 static void
 limProcessChannelSwitchSuspendLink(tpAniSirGlobal pMac,
                                     eHalStatus status,
@@ -2622,6 +2626,14 @@ void limProcessChannelSwitchTimeout(tpAniSirGlobal pMac)
             if ( isLimSessionOffChannel(pMac,
                 pMac->lim.limTimers.gLimChannelSwitchTimer.sessionId) )
             {
+                if (limIsLinkSuspended(pMac))
+                {
+                    limLog(pMac, LOGE, FL("Link is already suspended for "
+                        "some other reason. Return here for sessionId:%d"),
+                        pMac->lim.limTimers.gLimChannelSwitchTimer.sessionId);
+                    return;
+                }
+
                 limSuspendLink(pMac,
                     eSIR_DONT_CHECK_LINK_TRAFFIC_BEFORE_SCAN,
                     limProcessChannelSwitchSuspendLink,
@@ -5968,14 +5980,25 @@ tSirRetStatus limPostMlmAddBAReq( tpAniSirGlobal pMac,
           FL( "Requesting ADDBA with Cisco 1225 AP, window size 25"));
       pMlmAddBAReq->baBufferSize = MAX_BA_WINDOW_SIZE_FOR_CISCO;
   }
+  else if (pMac->miracastVendorConfig)
+  {
+      if (wlan_cfgGetInt(pMac, WNI_CFG_NUM_BUFF_ADVERT , &val) != eSIR_SUCCESS)
+      {
+           limLog(pMac, LOGE, FL("Unable to get WNI_CFG_NUM_BUFF_ADVERT"));
+           status = eSIR_FAILURE;
+           goto returnFailure;
+      }
+
+      pMlmAddBAReq->baBufferSize = val;
+  }
   else
       pMlmAddBAReq->baBufferSize = 0;
 
   limLog( pMac, LOGW,
-      FL( "Requesting an ADDBA to setup a %s BA session with STA %d for TID %d" ),
+      FL( "Requesting an ADDBA to setup a %s BA session with STA %d for TID %d buff = %d" ),
       (pMlmAddBAReq->baPolicy ? "Immediate": "Delayed"),
       pStaDs->staIndex,
-      tid );
+      tid, pMlmAddBAReq->baBufferSize );
 
   // BA Timeout
   if (wlan_cfgGetInt(pMac, WNI_CFG_BA_TIMEOUT, &val) != eSIR_SUCCESS)
@@ -7356,6 +7379,8 @@ void limHandleDeferMsgError(tpAniSirGlobal pMac, tpSirMsgQ pLimMsg)
 {
       if(SIR_BB_XPORT_MGMT_MSG == pLimMsg->type) 
         {
+            /*Decrement the Pending count before droping */
+            limDecrementPendingMgmtCount (pMac);
             vos_pkt_return_packet((vos_pkt_t*)pLimMsg->bodyptr);
         }
       else if(pLimMsg->bodyptr != NULL)
@@ -8286,3 +8311,89 @@ limSetProtectedBit(tpAniSirGlobal  pMac,
         pMacHdr->fc.wep = 1;
 } /*** end limSetProtectedBit() ***/
 #endif
+
+tANI_U8* limGetIePtr(v_U8_t *pIes, int length, v_U8_t eid)
+{
+    int left = length;
+    tANI_U8 *ptr = pIes;
+    tANI_U8 elem_id,elem_len;
+
+    while (left >= 2)
+    {
+       elem_id  =  ptr[0];
+       elem_len =  ptr[1];
+       left -= 2;
+
+       if (elem_len > left)
+       {
+           VOS_TRACE (VOS_MODULE_ID_PE, VOS_TRACE_LEVEL_ERROR,
+               FL("****Invalid IEs eid = %d elem_len=%d left=%d\n*****"),
+                                 eid,elem_len,left);
+           return NULL;
+       }
+       if (elem_id == eid)
+       {
+           return ptr;
+       }
+
+       left -= elem_len;
+       ptr += (elem_len + 2);
+    }
+    return NULL;
+}
+
+
+void limParseBeaconForTim(tpAniSirGlobal pMac,tANI_U8* pRxPacketInfo, tpPESession psessionEntry)
+{
+
+    tANI_U32        nPayload;
+    tANI_U8        *pPayload;
+    tANI_U8        *ieptr;
+    tSirMacTim     *tim;
+
+    pPayload = WDA_GET_RX_MPDU_DATA( pRxPacketInfo );
+    nPayload = WDA_GET_RX_PAYLOAD_LEN( pRxPacketInfo );
+
+    if (nPayload < (SIR_MAC_B_PR_SSID_OFFSET + SIR_MAC_MIN_IE_LEN))
+    {
+       limLog(pMac, LOGE, FL("Beacon length too short to parse"));
+       return;
+    }
+
+    if (NULL !=
+       (ieptr = limGetIePtr((pPayload + SIR_MAC_B_PR_SSID_OFFSET),
+                                            nPayload, SIR_MAC_TIM_EID)))
+    {
+       /* Ignore EID and Length field*/
+       tim  = (tSirMacTim *)(ieptr + 2);
+
+       vos_mem_copy(( tANI_U8* )&psessionEntry->lastBeaconTimeStamp,
+                     ( tANI_U8* )pPayload, sizeof(tANI_U64));
+       if (tim->dtimCount >= MAX_DTIM_COUNT)
+           tim->dtimCount = DTIM_COUNT_DEFAULT;
+       if (tim->dtimPeriod >= MAX_DTIM_PERIOD)
+           tim->dtimPeriod = DTIM_PERIOD_DEFAULT;
+       psessionEntry->lastBeaconDtimCount = tim->dtimCount;
+       psessionEntry->lastBeaconDtimPeriod = tim->dtimPeriod;
+       psessionEntry->currentBssBeaconCnt++;
+
+       limLog(pMac, LOG1,
+              FL("currentBssBeaconCnt %d lastBeaconDtimCount %d lastBeaconDtimPeriod %d"),
+              psessionEntry->currentBssBeaconCnt, psessionEntry->lastBeaconDtimCount,
+              psessionEntry->lastBeaconDtimPeriod);
+
+    }
+    return;
+}
+
+void limDecrementPendingMgmtCount (tpAniSirGlobal pMac)
+{
+    if( pMac->sys.gSysBbtPendingMgmtCount )
+    {
+         vos_spin_lock_acquire( &pMac->sys.lock );
+         pMac->sys.gSysBbtPendingMgmtCount--;
+         vos_spin_lock_release( &pMac->sys.lock );
+    }
+    else
+         limLog(pMac, LOGW, FL("Pending Management count going negative"));
+}
