@@ -711,9 +711,11 @@ static int adreno_of_get_iommu(struct platform_device *pdev,
 	if (adreno_dev == NULL)
 		return -EINVAL;
 
+	if (adreno_dev) {
 	adreno_dev->dev.mmu.secured =
 		(of_property_read_u32(node, "qcom,iommu-secure-id",
 			&secure_id) == 0) ?  true : false;
+	}
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {

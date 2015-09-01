@@ -4,6 +4,30 @@
 
 menu "Near Field Communication (NFC) devices"
 	depends on NFC
+endmenu
+
+config LGE_NFC
+	bool "NFC Device Enabled for LGE"
+	default n
+
+config LGE_NFC_PN547_C2
+	bool "PN547 C2 NFC driver"
+	depends on I2C
+	select CRC_CCITT
+	default n
+	---help---
+	  Say yes if you want PN547 Near Field Communication driver.
+	  This is for i2c connected version. If unsure, say N here.
+
+	  To compile this driver as a module, choose m here. The module will
+	  be called pn547.
+
+config LGE_NFC_SET_IRQ_WAKEUP
+	bool "NFC Set IRQ wakeup when NFC ON"
+	default n
+	---help---
+	  Say yes if Set IRQ Wakeup NFC ON.
+	  If unsure, say N here.
 
 config NFC_PN533
 	tristate "NXP PN533 USB driver"
@@ -39,12 +63,11 @@ config NFC_MEI_PHY
 source "drivers/nfc/pn544/Kconfig"
 source "drivers/nfc/microread/Kconfig"
 
-endmenu
-
 config NFC_QNCI
 	bool "Qualcomm NCI based NFC Controller Driver for qca199x"
 	depends on I2C
 	select CRC_CCITT
+	default n
 	help
 	  This enables the NFC driver for QCA199x based devices.
 	  This is for i2c connected version. NCI protocol logic

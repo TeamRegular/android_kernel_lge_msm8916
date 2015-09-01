@@ -643,6 +643,13 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 				(h_period * v_period * frame_rate * bpp * 8);
 		}
 	}
+#ifdef CONFIG_LGE_LCD_TUNING
+	h_period += panel_info->lcdc.xres_pad;
+	v_period += panel_info->lcdc.yres_pad;
+	panel_info->clk_rate
+		= ((h_period * v_period * frame_rate * bpp * 8) / lanes);
+	pr_info("clk_rate : %d\n", panel_info->clk_rate);
+#endif
 	pll_divider_config.clk_rate = panel_info->clk_rate;
 
 
@@ -964,6 +971,9 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct mipi_panel_info *mipi;
 	u32 lane_status = 0;
 	u32 active_lanes = 0;
+#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+	u32 tmp =0;
+#endif
 
 	if (!ctrl) {
 		pr_err("%s: invalid input\n", __func__);
@@ -995,6 +1005,12 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 			__func__);
 		return 0;
 	}
+
+#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+	tmp = MIPI_INP(ctrl->ctrl_base + 0x00AC);
+	MIPI_OUTP(ctrl->ctrl_base + 0x0AC, tmp & ~BIT(28));
+	udelay(100);
+#endif
 
 	/* clock lane will always be programmed for ulps */
 	active_lanes = BIT(4);

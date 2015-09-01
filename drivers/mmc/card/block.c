@@ -1318,6 +1318,17 @@ static int mmc_blk_reset(struct mmc_blk_data *md, struct mmc_host *host,
 
 	md->reset_done |= type;
 	err = mmc_hw_reset(host);
+
+#if defined (CONFIG_LGE_MMC_RESET_IF_HANG)
+    /* in case that eMMC failed to re-initialize, retry five times and crash if it is eMMC. */
+    if (err == -ETIMEDOUT && host->caps & MMC_CAP_NONREMOVABLE) /* Only for eMMC (NONREMOVABLE) */
+    {
+        err = mmc_hw_reset(host);
+        pr_info("%s:%s: retry mmc_blk_reset() %d\n",
+                    mmc_hostname(host), __func__, err);
+    }
+#endif
+
 	if (err && err != -EOPNOTSUPP) {
 		/* We failed to reset so we need to abort the request */
 		pr_err("%s: %s: failed to reset %d\n", mmc_hostname(host),

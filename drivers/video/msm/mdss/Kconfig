@@ -43,3 +43,23 @@ config FB_MSM_MDSS_MDP3
 	---help---
 	The MDP3 provides support for an older version display controller
 	included in latest display sub-system, known as MDSS.
+
+config LGE_LCD_TUNING
+	bool "Enable sysfs for LCD TUNING"
+	default n
+
+config LGD_INCELL_VIDEO_FWVGA_PT_PANEL
+	bool "Enable LGD INCELL FWVGA panel"
+	default n
+
+config LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+	bool "Enable LGD INCELL PHASE3 HD panel"
+	default n
+
+config LGE_MANUAL_FUDGE_FACTOR
+	bool "Enable change fudge factor in mdss mdp manually"
+	default n
+
+config LGE_UNDERRUN
+	bool "LGE UNDERRUN feature to prevent 8916-user-underrun"
+	default n

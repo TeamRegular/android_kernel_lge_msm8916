@@ -60,6 +60,11 @@
 #define MDSS_FB_NUM 2
 #endif
 
+#ifdef CONFIG_LGE_LCD_TUNING
+#include "mdss_mdp.h"
+#include "mdss_dsi.h"
+#endif
+
 #ifndef EXPORT_COMPAT
 #define EXPORT_COMPAT(x)
 #endif
@@ -76,6 +81,10 @@ static u32 mdss_fb_pseudo_palette[16] = {
 };
 
 static struct msm_mdp_interface *mdp_instance;
+
+#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+extern struct mdss_panel_data *pdata_lut_update;
+#endif
 
 static int mdss_fb_register(struct msm_fb_data_type *mfd);
 static int mdss_fb_open(struct fb_info *info, int user);
@@ -498,6 +507,21 @@ static ssize_t mdss_fb_get_idle_notify(struct device *dev,
 	return ret;
 }
 
+#ifdef CONFIG_MACH_LGE
+static ssize_t mdss_fb_get_panel_name(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+	struct mdss_panel_info *pinfo = mfd->panel_info;
+	int ret;
+
+	ret = scnprintf(buf, PAGE_SIZE,"%s\n",pinfo->panel_name);
+
+	return ret;
+}
+#endif
+
 static ssize_t mdss_fb_get_panel_info(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -654,6 +678,127 @@ static ssize_t mdss_fb_get_doze_mode(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", mfd->doze_mode);
 }
 
+#ifdef CONFIG_LGE_LCD_TUNING
+static ssize_t mdss_get_porch_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_info *panel_info = mfd->panel_info;
+	ret = sprintf(buf, "vfp:%d vbp:%d vpw:%d hfp:%d hbp:%d hpw:%d\n",
+			panel_info->lcdc.v_front_porch,
+			panel_info->lcdc.v_back_porch,
+			panel_info->lcdc.v_pulse_width,
+			panel_info->lcdc.h_front_porch,
+			panel_info->lcdc.h_back_porch,
+			panel_info->lcdc.h_pulse_width);
+	return ret;
+}
+
+static ssize_t mdss_set_porch_store(struct device *dev,
+		struct device_attribute *addr, const char *buf, size_t count)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_info *panel_info = mfd->panel_info;
+	int c_v_front_porch;
+	int c_v_back_porch;
+	int c_v_pulse_width;
+	int c_h_front_porch;
+	int c_h_back_porch;
+	int c_h_pulse_width;
+	sscanf(buf, "%d %d %d %d %d %d",
+			&c_v_front_porch, &c_v_back_porch,&c_v_pulse_width,
+			&c_h_front_porch, &c_h_back_porch, &c_h_pulse_width);
+	panel_info->lcdc.v_front_porch = c_v_front_porch;
+	panel_info->lcdc.v_back_porch = c_v_back_porch;
+	panel_info->lcdc.v_pulse_width = c_v_pulse_width;
+	panel_info->lcdc.h_front_porch = c_h_front_porch;
+	panel_info->lcdc.h_back_porch = c_h_back_porch;
+	panel_info->lcdc.h_pulse_width = c_h_pulse_width;
+	return count;
+}
+
+static ssize_t mdss_get_timing_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_info *panel_info = mfd->panel_info;
+		ret = sprintf(buf, "%x %x %x %x %x %x %x %x %x %x %x %x\n",
+				panel_info->mipi.dsi_phy_db.timing[0],
+				panel_info->mipi.dsi_phy_db.timing[1],
+				panel_info->mipi.dsi_phy_db.timing[2],
+				panel_info->mipi.dsi_phy_db.timing[3],
+				panel_info->mipi.dsi_phy_db.timing[4],
+				panel_info->mipi.dsi_phy_db.timing[5],
+				panel_info->mipi.dsi_phy_db.timing[6],
+				panel_info->mipi.dsi_phy_db.timing[7],
+				panel_info->mipi.dsi_phy_db.timing[8],
+				panel_info->mipi.dsi_phy_db.timing[9],
+				panel_info->mipi.dsi_phy_db.timing[10],
+				panel_info->mipi.dsi_phy_db.timing[11]
+		);
+	return ret;
+}
+
+static ssize_t mdss_set_timing_store(struct device *dev,
+		struct device_attribute *addr, const char *buf, size_t count)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_info *panel_info = mfd->panel_info;
+	int timing_number[12];
+	int i;
+	sscanf(buf, "%x %x %x %x %x %x %x %x %x %x %x %x",
+			&timing_number[0], &timing_number[1],
+			&timing_number[2], &timing_number[3],
+			&timing_number[4], &timing_number[5],
+			&timing_number[6], &timing_number[7],
+			&timing_number[8], &timing_number[9],
+			&timing_number[10], &timing_number[11]);
+	for(i=0; i<12; i++)
+	{
+		panel_info->mipi.dsi_phy_db.timing[i] = timing_number[i];
+	}
+	return count;
+}
+
+static ssize_t mdss_get_tclk_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_info *panel_info = mfd->panel_info;
+		ret = sprintf(buf, "post:%x pre:%x\n",
+				panel_info->mipi.t_clk_post,
+				panel_info->mipi.t_clk_pre
+		);
+	return ret;
+}
+
+static ssize_t mdss_set_tclk_store(struct device *dev,
+		struct device_attribute *addr, const char *buf, size_t count)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_info *panel_info = mfd->panel_info;
+	int c_t_clk_post;
+	int c_t_clk_pre;
+	sscanf(buf, "%x %x", &c_t_clk_post, &c_t_clk_pre);
+	panel_info->mipi.t_clk_post = c_t_clk_post;
+	panel_info->mipi.t_clk_pre = c_t_clk_pre;
+	return count;
+}
+
+static DEVICE_ATTR(porch, S_IRUSR | S_IWUSR, mdss_get_porch_show, mdss_set_porch_store);
+static DEVICE_ATTR(timing_value, S_IRUSR | S_IWUSR, mdss_get_timing_show, mdss_set_timing_store);
+static DEVICE_ATTR(tclk, S_IRUSR | S_IWUSR, mdss_get_tclk_show, mdss_set_tclk_store);
+#endif
+
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO | S_IWUSR, mdss_fb_show_split,
 					mdss_fb_store_split);
@@ -662,6 +807,9 @@ static DEVICE_ATTR(idle_time, S_IRUGO | S_IWUSR | S_IWGRP,
 	mdss_fb_get_idle_time, mdss_fb_set_idle_time);
 static DEVICE_ATTR(idle_notify, S_IRUGO, mdss_fb_get_idle_notify, NULL);
 static DEVICE_ATTR(msm_fb_panel_info, S_IRUGO, mdss_fb_get_panel_info, NULL);
+#ifdef CONFIG_MACH_LGE
+static DEVICE_ATTR(panel_type, S_IRUGO, mdss_fb_get_panel_name, NULL);
+#endif
 static DEVICE_ATTR(msm_fb_src_split_info, S_IRUGO, mdss_fb_get_src_split_info,
 	NULL);
 static DEVICE_ATTR(msm_fb_thermal_level, S_IRUGO | S_IWUSR,
@@ -676,9 +824,17 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_idle_time.attr,
 	&dev_attr_idle_notify.attr,
 	&dev_attr_msm_fb_panel_info.attr,
+#ifdef CONFIG_MACH_LGE
+	&dev_attr_panel_type.attr,
+#endif
 	&dev_attr_msm_fb_src_split_info.attr,
 	&dev_attr_msm_fb_thermal_level.attr,
 	&dev_attr_always_on.attr,
+#ifdef CONFIG_LGE_LCD_TUNING
+	&dev_attr_porch.attr,
+	&dev_attr_timing_value.attr,
+	&dev_attr_tclk.attr,
+#endif
 	NULL,
 };
 
@@ -731,7 +887,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (cell_index > fbi_list_index)
 		return -EPROBE_DEFER;
 
-
+#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+	if (pdata_lut_update == NULL)
+		pdata_lut_update = pdata;
+#endif
 	/*
 	 * alloc framebuffer info + par data
 	 */
@@ -1128,6 +1287,15 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		 */
 		if (mfd->bl_level_scaled == temp) {
 			mfd->bl_level = bkl_lvl;
+#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+			if(mfd->bl_level !=0) {
+				pr_debug("backlight sent to panel :%d\n", temp);
+				pdata->set_backlight(pdata, temp);
+				mfd->bl_level = bkl_lvl;
+				mfd->bl_level_scaled = temp;
+				bl_notify_needed = true;
+			}
+#endif
 		} else {
 			pr_debug("backlight sent to panel :%d\n", temp);
 			pdata->set_backlight(pdata, temp);
@@ -3234,6 +3402,9 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	struct msm_sync_pt_data *sync_pt_data = NULL;
 	unsigned int dsi_mode = 0;
 	struct mdss_panel_data *pdata = NULL;
+#ifdef CONFIG_LGE_LCD_TUNING
+	u32 dsi_panel_invert = 0;
+#endif
 
 	if (!info || !info->par)
 		return -EINVAL;
@@ -3303,6 +3474,15 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_DISPLAY_COMMIT:
 		ret = mdss_fb_display_commit(info, argp);
 		break;
+
+#ifdef CONFIG_LGE_LCD_TUNING
+	case MSMFB_INVERT_PANEL:
+		ret = copy_from_user(&dsi_panel_invert, argp, sizeof(int));
+		if(ret)
+			return ret;
+		ret = mdss_dsi_panel_invert(dsi_panel_invert);
+	break;
+#endif
 
 	case MSMFB_LPM_ENABLE:
 		ret = copy_from_user(&dsi_mode, argp, sizeof(dsi_mode));

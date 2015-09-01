@@ -385,6 +385,19 @@
 		};
 	};
 
+	/*
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				 <  200000  762>,
+				 <  400000  1525>,
+				 <  533330  3051>,
+				 < 1152000  4066>;
+		};
+	};
+	*/
+	
 	qcom,msm-cpufreq@0 {
 		reg = <0 4>;
 		compatible = "qcom,msm-cpufreq";
@@ -688,6 +701,18 @@
 		compatible = "qcom,adsp-loader";
 		qcom,adsp-state = <0>;
 		qcom,proc-img-to-load = "modem";
+	};
+
+	mcd {
+		compatible = "qcom,mcd";
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		clocks = <&clock_gcc clk_crypto_clk_src>,
+		         <&clock_gcc clk_gcc_crypto_clk>,
+		         <&clock_gcc clk_gcc_crypto_ahb_clk>,
+		         <&clock_gcc clk_gcc_crypto_axi_clk>;
+		clock-names = "core_clk_src", "core_clk", "iface_clk", "bus_clk";
+		qcom,ce-opp-freq = <100000000>;
 	};
 
 	qcom_crypto: qcrypto@720000 {
@@ -1690,6 +1715,7 @@
 		clock-names = "core_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0>;
 		qcom,sw-power-collapse;
+		qcom,enable-minimum-voting;
 		qcom,load-freq-tbl = <352800 228570000 0xffffffff>,
 			<352800 228570000 0x55555555>,
 			<244800 160000000 0xffffffff>,
@@ -1742,11 +1768,11 @@
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
-					<63 512 99600 831900>, /* VGA 30 fps */
-					<63 512 298900 831900>, /* VGA 60 fps */
-					<63 512 298900 831900>, /* 720p 30 fps */
-					<63 512 677600 1331000>, /* 720p 60 fps */
-					<63 512 677600 1331000>; /* 1080p 30 fps */
+					<63 512 99600 3200000>, /* VGA 30 fps */
+					<63 512 298900 3200000>, /* VGA 60 fps */
+					<63 512 298900 3200000>, /* 720p 30 fps */
+					<63 512 677600 3200000>, /* 720p 60 fps */
+					<63 512 677600 3200000>; /* 1080p 30 fps */
 				qcom,bus-configs = <0x030fcfff>;
 			};
 			qcom,msm-bus-client@2 {
@@ -1818,19 +1844,6 @@
 			<0x07706010 0x4>;
 		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
 		qcom,clk_div = <27>;
-	};
-
-	mcd {
-		compatible = "qcom,mcd";
-		qcom,ce-hw-instance = <0>;
-		qcom,ce-device = <0>;
-		clocks = <&clock_gcc clk_crypto_clk_src>,
-			 <&clock_gcc clk_gcc_crypto_clk>,
-			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
-			 <&clock_gcc clk_gcc_crypto_axi_clk>;
-		clock-names = "core_clk_src", "core_clk",
-				"iface_clk", "bus_clk";
-		qcom,ce-opp-freq = <100000000>;
 	};
 };
 

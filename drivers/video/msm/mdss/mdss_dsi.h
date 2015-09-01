@@ -56,6 +56,10 @@
 
 #define NONE_PANEL "none"
 
+#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+#define LGD_INCELL_PHASE3_APPLY_POWER_SEQUENCE 1
+#endif
+
 enum {		/* mipi dsi panel */
 	DSI_VIDEO_MODE,
 	DSI_CMD_MODE,
@@ -336,6 +340,15 @@ struct mdss_dsi_ctrl_pdata {
 	int disp_te_gpio;
 	int rst_gpio;
 	int disp_en_gpio;
+#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+	int disp_lcd_ldo_1v8_gpio;
+	int disp_lcd_ldo_3v0_gpio;
+	int disp_dsv_en_gpio;
+#endif
+#ifdef CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL
+	int disp_dsv_p_gpio;
+	int disp_dsv_n_gpio;
+#endif
 	int bklt_en_gpio;
 	int mode_gpio;
 	int bklt_ctrl;	/* backlight ctrl */
@@ -367,6 +380,12 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds off_cmds;
+#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+	bool do_lut_update;
+	bool is_available_esd_recovery;
+	bool is_detected_esd;
+	struct dsi_panel_cmds lut_update_cmds;
+#endif
 	struct dsi_panel_cmds status_cmds;
 	u32 status_cmds_rlen;
 	u32 status_value;
@@ -401,6 +420,9 @@ struct mdss_dsi_ctrl_pdata {
 	int status_mode;
 
 	struct dsi_pinctrl_res pin_res;
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL)
+	char ldo_mode;
+#endif
 
 	unsigned long dma_size;
 	dma_addr_t dma_addr;

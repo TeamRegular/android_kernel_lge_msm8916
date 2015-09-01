@@ -31,6 +31,12 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/platform_device.h>
 
+#ifdef CONFIG_LGE_PM_MPP_LED_SINK
+#include <mach/board_lge.h>
+#define P_MUX1_1_1				0x10
+#define LR_MUX2_BAT_ID				0x31
+#endif
+
 /* QPNP VADC register definition */
 #define QPNP_VADC_REVISION1				0x0
 #define QPNP_VADC_REVISION2				0x1
@@ -2034,7 +2040,14 @@ static ssize_t qpnp_adc_show(struct device *dev,
 	struct qpnp_vadc_result result;
 	int rc = -1;
 
+#ifdef CONFIG_LGE_PM_MPP_LED_SINK
+	if (attr->index == P_MUX1_1_1)
+		rc = qpnp_vadc_read(vadc, LR_MUX2_BAT_ID, &result);
+	else
+		rc = qpnp_vadc_read(vadc, attr->index, &result);
+#else
 	rc = qpnp_vadc_read(vadc, attr->index, &result);
+#endif
 
 	if (rc) {
 		pr_err("VADC read error with %d\n", rc);

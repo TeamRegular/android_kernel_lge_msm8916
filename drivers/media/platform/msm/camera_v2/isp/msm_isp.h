@@ -52,8 +52,8 @@
 #define VFE_CLK_INFO_MAX 16
 #define STATS_COMP_BIT_MASK 0xFF0000
 
-#define MSM_ISP_MIN_AB 100000000
-#define MSM_ISP_MIN_IB 120000000
+#define MSM_ISP_MIN_AB 300000000
+#define MSM_ISP_MIN_IB 4000000000U //450000000
 
 struct vfe_device;
 struct msm_vfe_axi_stream;
@@ -587,8 +587,8 @@ struct vfe_device {
 	uint64_t msm_isp_vfe_clk_rate;
 	struct msm_isp_ub_info *ub_info;
 	uint32_t vfe_ub_policy;
-	uint32_t isp_sof_debug;
 	uint8_t reset_pending;
+	uint8_t mk_overflow; //                                                                                           
 };
 
 #endif

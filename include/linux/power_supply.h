@@ -160,6 +160,29 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE,
 	/* unit is in ohms due to ID being typically in kohm range */
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
+#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
+	POWER_SUPPLY_PROP_BATTERY_ID_CHECKER,
+	POWER_SUPPLY_PROP_VALID_BATT,
+	POWER_SUPPLY_PROP_CHECK_BATT_ID_FOR_AAT,
+#endif
+#ifdef CONFIG_LGE_PM_PSEUDO_BATTERY
+	POWER_SUPPLY_PROP_PSEUDO_BATT,
+#endif
+#ifdef CONFIG_LGE_PM
+	POWER_SUPPLY_PROP_SAFETY_TIMER,
+	POWER_SUPPLY_PROP_CALCULATED_SOC,
+#endif
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+	POWER_SUPPLY_PROP_EXT_PWR_CHECK,
+	POWER_SUPPLY_PROP_SAFETY_CHARGER_TIMER,
+	POWER_SUPPLY_PROP_CHARGING_COMPLETE,
+#endif
+#ifdef CONFIG_LGE_PM_BATTERY_EXTERNAL_FUELGAUGE
+	POWER_SUPPLY_PROP_USE_FUELGAUGE,
+#endif
+#ifdef CONFIG_LGE_PM_FACTORY_TESTMODE
+	POWER_SUPPLY_PROP_HW_REV,
+#endif
 	/* Local extensions */
 	POWER_SUPPLY_PROP_USB_HC,
 	POWER_SUPPLY_PROP_USB_OTG,
@@ -185,6 +208,9 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
 	POWER_SUPPLY_TYPE_WIRELESS,	/* Accessory Charger Adapters */
 	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
+#ifdef CONFIG_LGE_PM_BATTERY_EXTERNAL_FUELGAUGE
+	POWER_SUPPLY_TYPE_FUELGAUGE,
+#endif
 	POWER_SUPPLY_TYPE_USB_PARALLEL,		/* USB Parallel Path */
 };
 
@@ -233,7 +259,7 @@ struct power_supply {
 	struct thermal_cooling_device *tcd;
 #endif
 
-#ifdef CONFIG_LEDS_TRIGGERS
+#if defined (CONFIG_LEDS_TRIGGERS) && !defined(CONFIG_LGE_PM)
 	struct led_trigger *charging_full_trig;
 	char *charging_full_trig_name;
 	struct led_trigger *charging_trig;
@@ -244,6 +270,9 @@ struct power_supply {
 	char *online_trig_name;
 	struct led_trigger *charging_blink_full_solid_trig;
 	char *charging_blink_full_solid_trig_name;
+#endif
+#ifdef CONFIG_LGE_PM_BATTERY_EXTERNAL_FUELGAUGE
+	int use_external_fuelgauge;
 #endif
 };
 

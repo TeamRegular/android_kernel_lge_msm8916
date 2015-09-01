@@ -21,6 +21,10 @@
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/qpnp-revid.h>
+#ifdef CONFIG_LGE_PM
+#include <linux/err.h>
+#endif
+
 /**
  * enum qpnp_vadc_channels - QPNP AMUX arbiter channels
  */

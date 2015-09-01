@@ -47,6 +47,10 @@
 #include <linux/msm-bus-board.h>
 #include <soc/qcom/scm.h>
 
+#ifdef CONFIG_MACH_LGE
+#include <mach/board_lge.h>
+#endif
+
 #include "mdss.h"
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -2641,6 +2645,13 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	mdata->ab_factor.denom = 1;
 	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-ab-factor",
 		&mdata->ab_factor);
+#ifdef CONFIG_LGE_MANUAL_FUDGE_FACTOR
+	if(lge_get_boot_mode() == LGE_BOOT_MODE_CHARGERLOGO)
+	{
+		mdata->ab_factor.numer = 2;
+		mdata->ab_factor.denom = 1;
+	}
+#endif
 
 	/*
 	 * 1.2 factor on ib as default value. This value is
@@ -2677,6 +2688,13 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	mdata->clk_factor.denom = 1;
 	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-clk-factor",
 		&mdata->clk_factor);
+#ifdef CONFIG_LGE_MANUAL_FUDGE_FACTOR
+	if(lge_get_boot_mode() == LGE_BOOT_MODE_CHARGERLOGO)
+	{
+		mdata->clk_factor.numer = 2;
+		mdata->clk_factor.denom = 1;
+	}
+#endif
 
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,max-bandwidth-low-kbps", &mdata->max_bw_low);

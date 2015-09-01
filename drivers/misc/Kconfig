@@ -620,6 +620,21 @@ config QCOM_LIQUID_DOCK
 	  the docking station of various models of Qualcomm Technology's
 	  LiQUID Mobile Development Platforms.
 
+config S5717
+	tristate "Seiko S-5717 Hall IC support"
+	default n
+	help
+	  This option enable device driver support for the Seiko's S-5717
+	  Hall IC which is both poles/unipolar detection type.
+
+config LGE_EVENT_LOCK
+    bool "factory 250-99 key lock cmd"
+    default n
+	depends on MACH_LGE
+    help
+      Support for keylock cmd using evdev.
+      If you need feature for keylock cmd using evdev, use this.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

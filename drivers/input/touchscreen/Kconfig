@@ -12,6 +12,7 @@ menuconfig INPUT_TOUCHSCREEN
 if INPUT_TOUCHSCREEN
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+source "drivers/input/touchscreen/TD4191/Kconfig"
 
 config TOUCHSCREEN_88PM860X
 	tristate "Marvell 88PM860x touchscreen"
@@ -1009,6 +1010,22 @@ config SECURE_TOUCH
 	  Say Y here to enable Secure Touch in supported drivers.
 
 	  If unsure, say N.
+
+config TOUCHSCREEN_LGE_TOUCHCORE
+	bool "LGE Touch Core driver"
+	depends on I2C
+	default n
+	help
+	 Say Y here if you use lge touch core
+	 if unsure, say N
+
+config TOUCHSCREEN_LGE_MELFAS
+	bool "Melfas MIT-200 based on LGE Touch Core driver"
+	depends on I2C && TOUCHSCREEN_LGE_TOUCHCORE
+	default n
+	help
+         Say Y here if you have a Mefas MIT-200 I2C touchscreen
+         connected to your system.
 
 config TOUCHSCREEN_GT9XX
 	bool "Goodix touchpanel GT9xx series"

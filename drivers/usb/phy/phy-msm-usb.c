@@ -52,6 +52,15 @@
 
 #include <linux/msm-bus.h>
 
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+#include <linux/power/bq24262_charger.h>
+#endif
+
+#ifdef CONFIG_LGE_PM
+#include <linux/power_supply.h>
+#include <mach/board_lge.h>
+#endif
+
 #define MSM_USB_BASE	(motg->regs)
 #define MSM_USB_PHY_CSR_BASE (motg->phy_csr_regs)
 
@@ -85,6 +94,10 @@ enum msm_otg_phy_reg_mode {
 	USB_PHY_REG_LPM_OFF,
 };
 
+#ifdef CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191
+extern void update_status(int code, int value);
+#endif
+
 static char *override_phy_init;
 module_param(override_phy_init, charp, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(override_phy_init,
@@ -95,7 +108,7 @@ module_param(lpm_disconnect_thresh , uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(lpm_disconnect_thresh,
 	"Delay before entering LPM on USB disconnect");
 
-static bool floated_charger_enable;
+static bool floated_charger_enable = true;
 module_param(floated_charger_enable , bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(floated_charger_enable,
 	"Whether to enable floated charger");
@@ -1679,6 +1692,9 @@ static void msm_otg_notify_host_mode(struct msm_otg *motg, bool host_mode)
 
 static int msm_otg_notify_chg_type(struct msm_otg *motg)
 {
+#ifdef CONFIG_LGE_PM
+	static int prev_charger_type = -1;
+#endif
 	static int charger_type;
 
 	/*
@@ -1688,14 +1704,26 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 	if (charger_type == motg->chg_type)
 		return 0;
 
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+	if (motg->chg_type == USB_SDP_CHARGER ||
+			motg->chg_type == USB_FLOATED_CHARGER)
+		charger_type = POWER_SUPPLY_TYPE_USB;
+#else
 	if (motg->chg_type == USB_SDP_CHARGER)
 		charger_type = POWER_SUPPLY_TYPE_USB;
+#endif
 	else if (motg->chg_type == USB_CDP_CHARGER)
 		charger_type = POWER_SUPPLY_TYPE_USB_CDP;
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+	else if (motg->chg_type == USB_DCP_CHARGER ||
+			motg->chg_type == USB_PROPRIETARY_CHARGER)
+		charger_type = POWER_SUPPLY_TYPE_USB_DCP;
+#else
 	else if (motg->chg_type == USB_DCP_CHARGER ||
 			motg->chg_type == USB_PROPRIETARY_CHARGER ||
 			motg->chg_type == USB_FLOATED_CHARGER)
 		charger_type = POWER_SUPPLY_TYPE_USB_DCP;
+#endif
 	else if ((motg->chg_type == USB_ACA_DOCK_CHARGER ||
 		motg->chg_type == USB_ACA_A_CHARGER ||
 		motg->chg_type == USB_ACA_B_CHARGER ||
@@ -1709,10 +1737,32 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_LGE_PM
+	if (prev_charger_type == charger_type)
+		return 0;
+	prev_charger_type = charger_type;
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191
+	update_status(1, motg->chg_type);
+#endif
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+	if (charger_type < POWER_SUPPLY_TYPE_USB && charger_type > POWER_SUPPLY_TYPE_BATTERY)
+		return -EINVAL;
+#endif
+
 	pr_debug("setting usb power supply type %d\n", charger_type);
+
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+	return bq24262_set_usb_power_supply_type(charger_type);
+#else
 	power_supply_set_supply_type(psy, charger_type);
+#endif
 	return 0;
 }
+#ifdef CONFIG_LGE_PM_AC_ONLINE
+static unsigned prev_mA = 0;
+#endif
 
 static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
 {
@@ -1720,26 +1770,125 @@ static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
 		dev_dbg(motg->phy.dev, "no usb power supply registered\n");
 		goto psy_error;
 	}
+#ifdef CONFIG_LGE_PM_AC_ONLINE
+	if (motg->chg_type == USB_DCP_CHARGER || motg->chg_type == USB_PROPRIETARY_CHARGER ||
+			motg->chg_type == USB_FLOATED_CHARGER){
+		pr_info("\n[LGE]msm_otg_notify_power_supply: "
+				"power_supply_get_by_name(ac)\n");
+		psy = power_supply_get_by_name("ac");
+	} else {
+		pr_info("\n[LGE] msm_otg_notify_power_supply: "
+				"power_supply_get_by_name(usb)\n");
+		psy = power_supply_get_by_name("usb");
+	}
+	if (!psy) {
+		goto psy_error;
+	}
 
+	pr_debug("[LGE] chg_type =%d motg->cur_power: %d mA: %d\n", motg->chg_type, motg->cur_power, mA);
+#endif
 	if (motg->cur_power == 0 && mA > 2) {
+#ifdef CONFIG_LGE_PM_AC_ONLINE
+		prev_mA = mA;
+#endif
 		/* Enable charging */
 		if (power_supply_set_online(psy, true))
 			goto psy_error;
 		if (power_supply_set_current_limit(psy, 1000*mA))
 			goto psy_error;
-	} else if (motg->cur_power >= 0 && (mA == 0 || mA == 2)) {
+#ifdef CONFIG_LGE_PM_AC_ONLINE
+		power_supply_changed(psy);
+		if(!strncmp(psy->name,"ac", 2)) {
+			psy = power_supply_get_by_name("usb");
+			if (!psy)
+				goto psy_error;
+
+			// if ac_online set -> copy usb online set
+			if (power_supply_set_online(psy, true))
+				goto psy_error;
+
+			if(power_supply_set_current_limit(psy, 1000*mA))
+				goto psy_error;
+			power_supply_changed(psy);
+
+			psy = power_supply_get_by_name("ac");
+			if (!psy)
+				goto psy_error;
+		}
+#endif
+	} else if (motg->cur_power > 0 && (mA == 0 || mA == 2)) {
+#ifdef CONFIG_LGE_PM_AC_ONLINE
+		prev_mA = mA;
+#endif
 		/* Disable charging */
 		if (power_supply_set_online(psy, false))
 			goto psy_error;
 		/* Set max current limit in uA */
 		if (power_supply_set_current_limit(psy, 1000*mA))
 			goto psy_error;
+#ifdef CONFIG_LGE_PM_AC_ONLINE
+		power_supply_changed(psy);
+		if(!strncmp(psy->name,"ac", 2)) {
+			psy = power_supply_get_by_name("usb");
+			if (!psy)
+				goto psy_error;
+
+			if (power_supply_set_online(psy, false))
+				goto psy_error;
+
+			if(power_supply_set_current_limit(psy, 0))
+				goto psy_error;
+
+			power_supply_changed(psy);
+
+			psy = power_supply_get_by_name("ac");
+			if (!psy)
+				goto psy_error;
+		}else {
+			psy = power_supply_get_by_name("ac");
+			if (!psy)
+				goto psy_error;
+
+			if (power_supply_set_online(psy, false))
+				goto psy_error;
+
+			if(power_supply_set_current_limit(psy, 0))
+				goto psy_error;
+
+			power_supply_changed(psy);
+
+			psy = power_supply_get_by_name("usb");
+			if (!psy)
+				goto psy_error;
+		}
+#endif
 	} else {
 		if (power_supply_set_online(psy, true))
 			goto psy_error;
 		/* Current has changed (100/2 --> 500) */
 		if (power_supply_set_current_limit(psy, 1000*mA))
 			goto psy_error;
+
+#ifdef CONFIG_LGE_PM_AC_ONLINE
+		power_supply_changed(psy);
+		if(!strncmp(psy->name,"ac", 2)) {
+			psy = power_supply_get_by_name("usb");
+			if (!psy)
+				goto psy_error;
+
+			/* if ac_online set -> copy usb online set */
+			if (power_supply_set_online(psy, true))
+				goto psy_error;
+
+			if(power_supply_set_current_limit(psy, 1000*mA))
+				goto psy_error;
+
+			power_supply_changed(psy);
+			psy = power_supply_get_by_name("ac");
+			if (!psy)
+				goto psy_error;
+		}
+#endif
 	}
 
 	power_supply_changed(psy);
@@ -1780,6 +1929,18 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 		dev_err(motg->phy.dev,
 			"Failed notifying %d charger type to PMIC\n",
 							motg->chg_type);
+
+#ifdef CONFIG_LGE_PM
+	if (mA > 2 && lge_pm_get_cable_type() != NO_INIT_CABLE) {
+		if (motg->chg_type == USB_SDP_CHARGER) {
+			mA = lge_pm_get_usb_current();
+		} else if (motg->chg_type == USB_DCP_CHARGER) {
+			mA = lge_pm_get_ta_current();
+		} else if (motg->chg_type == USB_FLOATED_CHARGER) {
+			mA = lge_pm_get_usb_current();
+		}
+	}
+#endif
 
 	/*
 	 * This condition will be true when usb cable is disconnected
@@ -2682,6 +2843,16 @@ static void msm_chg_detect_work(struct work_struct *w)
 	u32 line_state, dm_vlgc;
 	unsigned long delay;
 
+	motg->vadc_dev = qpnp_get_vadc(motg->phy.dev, "phy");
+
+	if (IS_ERR(motg->vadc_dev)) {
+		if (PTR_ERR(motg->vadc_dev) == -EPROBE_DEFER) {
+			queue_delayed_work(system_nrt_wq, &motg->chg_work,
+					msecs_to_jiffies(1000));
+			return;
+		}
+	}
+
 	dev_dbg(phy->dev, "chg detection work\n");
 
 	if (test_bit(MHL, &motg->inputs)) {
@@ -2736,6 +2907,9 @@ static void msm_chg_detect_work(struct work_struct *w)
 		}
 		break;
 	case USB_CHG_STATE_DCD_DONE:
+#ifdef CONFIG_LGE_PM	
+		lge_pm_read_cable_info(motg->vadc_dev);
+#endif		
 		vout = msm_chg_check_primary_det(motg);
 		line_state = readl_relaxed(USB_PORTSC) & PORTSC_LS;
 		dm_vlgc = line_state & PORTSC_LS_DM;
@@ -3012,10 +3186,18 @@ static void msm_otg_sm_work(struct work_struct *w)
 			case USB_CHG_STATE_DETECTED:
 				switch (motg->chg_type) {
 				case USB_DCP_CHARGER:
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+					bq24262_set_usb_power_supply_type(POWER_SUPPLY_TYPE_USB_DCP);
+#else
+					msm_otg_notify_charger(motg,
+							IDEV_CHG_MAX);
+					pm_runtime_put_sync(otg->phy->dev);
+					break;
+#endif
 					/* fall through */
 				case USB_PROPRIETARY_CHARGER:
 					msm_otg_notify_charger(motg,
-							IDEV_CHG_MAX);
+							IDEV_CHG_PROPRIETARY);
 					pm_runtime_put_sync(otg->phy->dev);
 					break;
 				case USB_FLOATED_CHARGER:
@@ -3023,6 +3205,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 							IDEV_CHG_MAX);
 					pm_runtime_put_noidle(otg->phy->dev);
 					pm_runtime_suspend(otg->phy->dev);
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+					bq24262_set_usb_power_supply_type(POWER_SUPPLY_TYPE_USB);
+#endif
 					break;
 				case USB_ACA_B_CHARGER:
 					msm_otg_notify_charger(motg,
@@ -3033,6 +3218,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 					 */
 					break;
 				case USB_CDP_CHARGER:
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+					bq24262_set_usb_power_supply_type(POWER_SUPPLY_TYPE_USB_CDP);
+#endif
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MAX);
 					msm_otg_start_peripheral(otg, 1);
@@ -3047,6 +3235,14 @@ static void msm_otg_sm_work(struct work_struct *w)
 						OTG_STATE_B_PERIPHERAL;
 					break;
 				case USB_SDP_CHARGER:
+#ifdef CONFIG_LGE_PM
+                                        msm_otg_notify_charger(motg,
+                                                        IDEV_CHG_MIN);
+#endif
+
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+					bq24262_set_usb_power_supply_type(POWER_SUPPLY_TYPE_USB);
+#endif
 					msm_otg_start_peripheral(otg, 1);
 					otg->phy->state =
 						OTG_STATE_B_PERIPHERAL;
@@ -4268,6 +4464,7 @@ static int otg_power_property_is_writeable_usb(struct power_supply *psy,
 
 static char *otg_pm_power_supplied_to[] = {
 	"battery",
+	"touch",
 };
 
 static enum power_supply_property otg_pm_power_props_usb[] = {
@@ -5376,8 +5573,12 @@ static int msm_otg_probe(struct platform_device *pdev)
 			psy = &motg->usb_psy;
 	}
 
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+	bq24262_charger_register_vbus_sn(&msm_otg_set_vbus_state);
+#else
 	if (legacy_power_supply && pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_register_vbus_sn(&msm_otg_set_vbus_state);
+#endif
 
 	ret = msm_otg_setup_ext_chg_cdev(motg);
 	if (ret)
@@ -5483,8 +5684,13 @@ static int msm_otg_remove(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
+
+#ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
+		bq24262_charger_unregister_vbus_sn(0);
+#else
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_unregister_vbus_sn(0);
+#endif
 	if (psy)
 		power_supply_unregister(psy);
 	msm_otg_mhl_register_callback(motg, NULL);

@@ -586,10 +586,12 @@ static int msm_vidc_load_clock_table(
 	dprintk(VIDC_DBG, "Power collapse supported = %s\n",
 		res->sw_power_collapsible ? "yes" : "no");
 
+#ifndef CONFIG_MACH_LGE
 	res->early_fw_load = of_property_read_bool(pdev->dev.of_node,
 				"qcom,early-fw-load");
 	dprintk(VIDC_DBG, "Early fw load = %s\n",
 				res->early_fw_load ? "yes" : "no");
+#endif
 
 	return 0;
 

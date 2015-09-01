@@ -743,8 +743,11 @@ static int qpnp_lpg_configure_pwm(struct qpnp_pwm_chip *chip)
 		&chip->qpnp_lpg_registers[QPNP_LPG_PWM_FREQ_PREDIV_CLK], 1);
 	if (rc)
 		return rc;
-
+#if defined(CONFIG_MACH_MSM8916_G4STYLUSN_MPCS_US) || defined(CONFIG_MACH_MSM8916_G4STYLUSN_TMO_US)
+	qpnp_set_pwm_type_config(&value, 0, 0, 0, 0);
+#else
 	qpnp_set_pwm_type_config(&value, 1, 0, 0, 0);
+#endif
 
 	mask = QPNP_EN_GLITCH_REMOVAL_MASK | QPNP_EN_FULL_SCALE_MASK |
 			QPNP_EN_PHASE_STAGGER_MASK | QPNP_PHASE_STAGGER_MASK;

@@ -1,0 +1,21 @@
+#
+# Makefile for the input sensor drivers.
+#
+
+# Each configuration option enables a list of files.
+EXTRA_CFLAGS += -DCONFIG_BMA_USE_PLATFORM_DATA
+EXTRA_CFLAGS += -DBMM_USE_BASIC_I2C_FUNC
+
+ifeq ($(CONFIG_SENSORS_BMC150), y)
+	EXTRA_CFLAGS += -DBMA2X2_ACCEL_CALIBRATION
+	EXTRA_CFLAGS += -DBMA2X2_SENSOR_IDENTIFICATION_ENABLE
+	EXTRA_CFLAGS += -DCONFIG_BMM_USE_PLATFORM_DATA
+endif
+
+ifeq ($(CONFIG_SENSOR_APDS9930_ALS_ENABLE),y)
+	EXTRA_CFLAGS += -DAPDS9930_ALS_SENSOR_ENABLE
+endif
+
+obj-$(CONFIG_SENSOR_APDS9130)	+= apds9130.o
+obj-$(CONFIG_SENSORS_BMC150)    += bma2x2_driver.o bmm050_driver.o bmm050.o
+obj-$(CONFIG_SENSORS_BMC150_COMMON)    += bst_sensor_common.o

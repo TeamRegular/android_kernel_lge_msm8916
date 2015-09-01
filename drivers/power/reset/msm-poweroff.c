@@ -44,6 +44,8 @@
 #define SCM_DLOAD_CMD			0x10
 
 
+extern int msm8x16_wcd_spmi_write(unsigned short reg, int bytes, void *src);
+
 static int restart_mode;
 void *restart_reason;
 static bool scm_pmic_arbiter_disable_supported;
@@ -63,7 +65,11 @@ static void *emergency_dload_mode_addr;
 static bool scm_dload_supported;
 
 static int dload_set(const char *val, struct kernel_param *kp);
+#ifdef CONFIG_MACH_LGE
+static int download_mode = 0;
+#else
 static int download_mode = 1;
+#endif
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
 static int panic_prep_restart(struct notifier_block *this,
@@ -123,6 +129,7 @@ static bool get_dload_mode(void)
 	return dload_mode_enabled;
 }
 
+#ifndef CONFIG_MACH_LGE
 static void enable_emergency_dload_mode(void)
 {
 	int ret;
@@ -147,6 +154,7 @@ static void enable_emergency_dload_mode(void)
 	if (ret)
 		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
 }
+#endif
 
 static int dload_set(const char *val, struct kernel_param *kp)
 {
@@ -257,7 +265,7 @@ static void msm_restart_prepare(const char *cmd)
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
-			__raw_writel(0x77665500, restart_reason);
+			__raw_writel(0x6C616664, restart_reason);
 		} else if (!strncmp(cmd, "recovery", 8)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_RECOVERY);
@@ -273,12 +281,20 @@ static void msm_restart_prepare(const char *cmd)
 			if (!ret)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
+#ifndef CONFIG_MACH_LGE
 		} else if (!strncmp(cmd, "edl", 3)) {
 			enable_emergency_dload_mode();
+#endif
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
 	}
+
+#ifdef CONFIG_MACH_LGE
+	if (restart_mode == RESTART_DLOAD) {
+		set_dload_mode(0);
+	}
+#endif
 
 	flush_cache_all();
 
@@ -349,7 +365,7 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 	halt_spmi_pmic_arbiter();
 	deassert_ps_hold();
 
-	mdelay(10000);
+    mdelay(10000);
 }
 
 static void do_msm_poweroff(void)

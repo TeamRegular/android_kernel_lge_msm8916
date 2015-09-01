@@ -16,6 +16,12 @@
 #include <soc/qcom/camera2.h>
 #include <linux/gpio.h>
 #include <linux/of.h>
+
+#if defined(CONFIG_LGE_G4STYLUS_CAMERA) || defined(CONFIG_LGE_CAMERA_USE_MAKER_ID)
+#include <linux/of_gpio.h>
+#include <mach/board_lge.h>
+#endif
+
 #include "msm_camera_i2c.h"
 
 int msm_sensor_get_sub_module_index(struct device_node *of_node,

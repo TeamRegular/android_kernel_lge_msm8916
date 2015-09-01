@@ -123,6 +123,9 @@ enum {
 	RX_MIX1_INP_SEL_RX3,
 };
 
+#ifdef CONFIG_MACH_LGE
+static int tapan_tx_mute = 0;
+#endif
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 static struct snd_soc_dai_driver msm8x16_wcd_i2s_dai[];
@@ -367,6 +370,13 @@ static int msm8x16_wcd_spmi_write_device(u16 reg, u8 *value, u32 bytes)
 		pr_err("%s: Failed to get device info\n", __func__);
 		return -ENODEV;
 	}
+
+#ifdef CONFIG_MACH_LGE
+	if (wcd->spmi == NULL) {
+		pr_err("%s: Failed to get device info\n", __func__);
+		return -ENODEV;
+	}
+#endif
 	ret = spmi_ext_register_writel(wcd->spmi->ctrl, wcd->spmi->sid,
 						wcd->base + reg, value, bytes);
 	if (ret)
@@ -1589,6 +1599,43 @@ static int msm8x16_wcd_put_iir_band_audio_mixer(
 	return 0;
 }
 
+#ifdef CONFIG_MACH_LGE
+static const char *const tapan_tx_mute_text[] = {"unmute", "mute"};
+static const struct soc_enum tapan_tx_mute_enum[] = {
+	SOC_ENUM_SINGLE_EXT(2, tapan_tx_mute_text),
+};
+
+static int tapan_tx_mute_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: tapan_tx_mute  = %d", __func__, tapan_tx_mute);
+	ucontrol->value.integer.value[0] = tapan_tx_mute;
+	return 0;
+}
+static int tapan_tx_mute_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	u16 tx_vol_ctl_reg0 = MSM8X16_WCD_A_CDC_TX1_VOL_CTL_CFG;
+	u16 tx_vol_ctl_reg1 = MSM8X16_WCD_A_CDC_TX1_VOL_CTL_CFG + 32;
+	switch (ucontrol->value.integer.value[0]) {
+		case 0:
+			snd_soc_update_bits(codec, tx_vol_ctl_reg0, 0x01, 0);
+			snd_soc_update_bits(codec, tx_vol_ctl_reg1, 0x01, 0);
+			break;
+		case 1:
+			snd_soc_update_bits(codec, tx_vol_ctl_reg0, 0x01, 1);
+			snd_soc_update_bits(codec, tx_vol_ctl_reg1, 0x01, 1);
+			break;
+		default:
+			break;
+	}
+	tapan_tx_mute = ucontrol->value.integer.value[0];
+	pr_debug("%s: tapan_tx_mute = %d\n", __func__, tapan_tx_mute);
+	return 0;
+}
+#endif
+
 static const char * const msm8x16_wcd_loopback_mode_ctrl_text[] = {
 		"DISABLE", "ENABLE"};
 static const struct soc_enum msm8x16_wcd_loopback_mode_ctl_enum[] = {
@@ -1647,6 +1694,10 @@ static const struct soc_enum cf_rxmix3_enum =
 
 static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
+#ifdef CONFIG_MACH_LGE
+	SOC_ENUM_EXT("TX_VOL_CTL_MUTE", tapan_tx_mute_enum[0],
+	tapan_tx_mute_get, tapan_tx_mute_put),
+#endif
 	SOC_ENUM_EXT("Boost Option", msm8x16_wcd_boost_option_ctl_enum[0],
 		msm8x16_wcd_boost_option_get, msm8x16_wcd_boost_option_set),
 
@@ -1707,6 +1758,10 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 	SOC_SINGLE("MICBIAS CAPLESS Switch",
 		   MSM8X16_WCD_A_ANALOG_MICB_1_EN, 6, 1, 0),
+#ifdef CONFIG_MACH_LGE
+	SOC_SINGLE("MICB 1 TX3N GND SEL",
+		   MSM8X16_WCD_A_ANALOG_MICB_1_EN, 0, 1, 0),
+#endif
 
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
 	SOC_ENUM("TX2 HPF cut off", cf_dec2_enum),
@@ -2331,6 +2386,16 @@ static int msm8x16_wcd_codec_enable_dig_clk(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
 					0x80, 0x00);
+#ifdef CONFIG_MACH_LGE
+		if (msm8x16_wcd->spk_boost_set) {
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_BOOST_EN_CTL,
+					0xDF, 0x5F);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+					0x20, 0x00);
+		}
+#endif
 	}
 	return 0;
 }
@@ -3436,6 +3501,10 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 		return 0;
 	}
 
+#ifdef CONFIG_MACH_LGE
+    mute |= tapan_tx_mute;
+    pr_debug("%s: Re-Digital Mute val = %d\n", __func__, mute);
+#endif
 	mute = (mute) ? 1 : 0;
 	if (!mute) {
 		/*
@@ -3851,6 +3920,9 @@ static const struct msm8x16_wcd_reg_mask_val msm8x16_wcd_reg_defaults_2_0[] = {
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_CURRENT_LIMIT, 0x82),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x03),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_OCP_CTL, 0xE1),
+#ifdef CONFIG_MACH_LGE
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS, 0x08),
+#endif
 };
 
 static const struct msm8x16_wcd_reg_mask_val msm8909_wcd_reg_defaults[] = {

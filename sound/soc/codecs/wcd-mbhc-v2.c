@@ -54,10 +54,42 @@
 #define FW_READ_ATTEMPTS 15
 #define FW_READ_TIMEOUT 4000000
 
+#ifdef CONFIG_MACH_LGE
+char *button_name[4] = {"Hook Key", "Voice Assist", "Volume Up", "Volume Down"};
+#endif
+
 static int det_extn_cable_en;
 module_param(det_extn_cable_en, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(det_extn_cable_en, "enable/disable extn cable detect");
+
+#ifdef CONFIG_MACH_LGE
+enum {
+	NO_DEVICE   = 0,
+	LGE_HEADSET = (1 << 0),
+	LGE_HEADSET_NO_MIC = (1 << 1),
+};
+
+static ssize_t lge_hsd_print_name(struct switch_dev *sdev, char *buf)
+{
+	switch (switch_get_state(sdev)) {
+		case NO_DEVICE:
+			return sprintf(buf, "No Device");
+		case LGE_HEADSET:
+			return sprintf(buf, "Headset");
+		case LGE_HEADSET_NO_MIC:
+			return sprintf(buf, "Headset");
+		default:
+			break;
+	}
+	return -EINVAL;
+}
+
+static ssize_t lge_hsd_print_state(struct switch_dev *sdev, char *buf)
+{
+	return sprintf(buf, "%d\n", switch_get_state(sdev));
+}
+#endif
 
 #define WCD_MBHC_RSC_LOCK(mbhc)			\
 {							\
@@ -118,7 +150,33 @@ static void wcd_configure_cap(struct wcd_mbhc *mbhc, bool micbias2)
 static void wcd_mbhc_jack_report(struct wcd_mbhc *mbhc,
 				struct snd_soc_jack *jack, int status, int mask)
 {
+#ifdef CONFIG_MACH_LGE
+	pr_info("[LGE MBHC] %s: status : %d , mask : 0x%x\n", __func__,status,mask);
+#endif
 	snd_soc_jack_report_no_dapm(jack, status, mask);
+#ifdef CONFIG_MACH_LGE
+	{
+		if(mask == WCD_MBHC_JACK_MASK)
+		{
+			if (status == SND_JACK_HEADPHONE)
+			{
+				switch_set_state(&mbhc->sdev, LGE_HEADSET_NO_MIC);
+			}
+			else if(status == SND_JACK_HEADSET)
+			{
+				switch_set_state(&mbhc->sdev, LGE_HEADSET);
+			}
+			else if(status == 0)
+			{
+				switch_set_state(&mbhc->sdev, NO_DEVICE);
+			}
+			else
+			{
+				pr_debug("%s: not reported to switch_dev\n", __func__);
+			}
+		}
+	}
+#endif
 }
 
 static void __hphocp_off_report(struct wcd_mbhc *mbhc, u32 jack_status,
@@ -692,6 +750,11 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 
 	pr_debug("%s: enter insertion %d hph_status %x\n",
 		 __func__, insertion, mbhc->hph_status);
+#ifdef CONFIG_MACH_LGE
+	pr_info("[LGE MBHC] %s is %s. jack_type=%x\n",
+				(jack_type-1)?"4 Pin Headset":"3 Pin Headphone",
+				insertion?"Inserted":"Removed", jack_type);
+#endif
 	if (!insertion) {
 		/* Report removal */
 		mbhc->hph_status &= ~jack_type;
@@ -865,6 +928,10 @@ static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	enum wcd_mbhc_plug_type plug_type = mbhc->current_plug;
 	s16 reg1;
 
+#ifdef CONFIG_MACH_LGE                           
+	pr_debug("%s: disable ", __func__);
+		return false;
+#endif
 	if (wcd_swch_level_remove(mbhc)) {
 		pr_debug("%s: Switch level is low\n", __func__);
 		return false;
@@ -1038,9 +1105,15 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			}
 		}
 		if (result2 == 1) {
+#ifdef CONFIG_MACH_LGE
+			pr_info("[LGE MBHC] detect as 4Pin and then HIGH_HPH. Force 4Pin Headset.\n");
+			plug_type = MBHC_PLUG_TYPE_HEADSET;
+			wrk_complete = false;
+#else
 			pr_debug("%s: cable is extension cable\n", __func__);
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
 			wrk_complete = true;
+#endif
 		} else {
 			pr_debug("%s: cable might be headset: %d\n", __func__,
 					plug_type);
@@ -1094,6 +1167,11 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		} else {
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_NONE);
 		}
+#ifdef CONFIG_MACH_LGE
+		WCD_MBHC_RSC_LOCK(mbhc);
+		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
+		WCD_MBHC_RSC_UNLOCK(mbhc);
+#endif
 		goto exit;
 	}
 
@@ -1221,6 +1299,19 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 			goto exit;
 		}
 	}
+
+#ifdef CONFIG_MACH_LGE
+	if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH &&
+		(!det_extn_cable_en)) {
+			pr_info("[LGE MBHC] %s: Apple headset or AUX cable is found. Force 4pin Headset. plug_type:0x%x\n",
+					 __func__, plug_type);
+
+			mbhc->micbias_enable = true;
+			plug_type = MBHC_PLUG_TYPE_HEADSET;
+			goto exit;
+	}
+#endif
+
 exit:
 	pr_debug("%s: Valid plug found, plug type is %d\n",
 			 __func__, plug_type);
@@ -1305,15 +1396,25 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 				0x04, 0x00);
 		wcd_configure_cap(mbhc, false);
 		mbhc->btn_press_intr = false;
+#ifdef CONFIG_MACH_LGE
+		if (!mbhc->mbhc_cfg->hs_ext_micbias)
+			/* make sure to turn off Rbias */
+			snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS, 0x10, 0x00);
+#endif
 		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADPHONE);
 		} else if (mbhc->current_plug == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_UNSUPPORTED);
+#ifdef CONFIG_MACH_LGE
+			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADSET);
+#endif
 		} else if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADSET) {
+#ifndef CONFIG_MACH_LGE
 			/* make sure to turn off Rbias */
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS,
 					0x18, 0x08);
+#endif
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_MICB_2_EN,
 					0x20, 0x20);
@@ -1400,7 +1501,9 @@ static int wcd_mbhc_get_button_mask(u16 btn)
 		mask = SND_JACK_BTN_3;
 		break;
 	case 15:
+#ifndef CONFIG_MACH_LGE
 		mask = SND_JACK_BTN_4;
+#endif
 		break;
 	default:
 		break;
@@ -1602,6 +1705,10 @@ static void wcd_btn_lpress_fn(struct work_struct *work)
 			 __func__, result1);
 		wcd_mbhc_jack_report(mbhc, &mbhc->button_jack,
 				mbhc->buttons_pressed, mbhc->buttons_pressed);
+#ifdef CONFIG_MACH_LGE
+		pr_info("[LGE MBHC] Headset LONG Button : %s is pressed.\n",
+					button_name[(mbhc->buttons_pressed>>24)*-1/2+2]);
+#endif
 	}
 	pr_debug("%s: leave\n", __func__);
 	wcd9xxx_spmi_unlock_sleep();
@@ -1677,6 +1784,14 @@ irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	}
 	result1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
 	mask = wcd_mbhc_get_button_mask(result1);
+
+#ifdef CONFIG_MACH_LGE
+	if (!mask) {
+		pr_info("[LGE MBHC] Unsupported button event, ignore button press.\n");
+		goto done;
+	}
+#endif
+
 	mbhc->buttons_pressed |= mask;
 	wcd9xxx_spmi_lock_sleep();
 	if (schedule_delayed_work(&mbhc->mbhc_btn_dwork,
@@ -1715,6 +1830,10 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 	 * headset not headphone.
 	 */
 	if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
+#ifdef CONFIG_MACH_LGE
+		wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADPHONE);
+		mbhc->current_plug = MBHC_PLUG_TYPE_HEADSET;
+#endif
 		wcd_mbhc_report_plug(mbhc, 1, SND_JACK_HEADSET);
 		goto exit;
 
@@ -2063,6 +2182,46 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		INIT_DELAYED_WORK(&mbhc->mbhc_firmware_dwork,
 				  wcd_mbhc_fw_read);
 		INIT_DELAYED_WORK(&mbhc->mbhc_btn_dwork, wcd_btn_lpress_fn);
+
+#ifdef CONFIG_MACH_LGE
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_1,
+				       KEY_VOICECOMMAND);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-1\n",
+				__func__);
+			return ret;
+		}
+
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_2,
+				       KEY_VOLUMEUP);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-2\n",
+				__func__);
+			return ret;
+		}
+
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_3,
+				       KEY_VOLUMEDOWN);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-3\n",
+				__func__);
+			return ret;
+		}
+		{
+			mbhc->sdev.name = "h2w";
+			mbhc->sdev.print_state = lge_hsd_print_state;
+			mbhc->sdev.print_name = lge_hsd_print_name;
+
+			ret = switch_dev_register(&mbhc->sdev);
+			if (ret < 0) {
+				pr_err("[MBHC]Failed to register switch device\n");
+				switch_dev_unregister(&mbhc->sdev);
+			}
+		}
+#endif
 	}
 
 	/* Register event notifier */
@@ -2169,6 +2328,10 @@ EXPORT_SYMBOL(wcd_mbhc_init);
 void wcd_mbhc_deinit(struct wcd_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
+
+#ifdef CONFIG_MACH_LGE
+	switch_dev_unregister(&mbhc->sdev);
+#endif
 
 	wcd9xxx_spmi_free_irq(mbhc->intr_ids->mbhc_sw_intr, mbhc);
 	wcd9xxx_spmi_free_irq(mbhc->intr_ids->mbhc_btn_press_intr, mbhc);

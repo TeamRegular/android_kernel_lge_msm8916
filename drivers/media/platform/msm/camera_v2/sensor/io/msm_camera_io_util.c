@@ -607,6 +607,10 @@ int msm_camera_request_gpio_table(struct gpio *gpio_tbl, uint8_t size,
 				pr_err("%s:%d gpio %d:%s request fails\n",
 					__func__, __LINE__,
 					gpio_tbl[i].gpio, gpio_tbl[i].label);
+
+				#if defined (CONFIG_MACH_MSM8916_C70W_KR)	//                                                         
+				rc = err;
+				#endif	//
 			}
 		}
 	} else {

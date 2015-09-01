@@ -4998,8 +4998,13 @@ static int probe_cc(struct device_node *node, struct msm_thermal_data *data,
 	uint32_t cpu = 0;
 
 	if (num_possible_cpus() > 1) {
+#if defined (CONFIG_LGE_PM) && !defined(CONFIG_LGE_ENABLE_THERMAL_CORE_CONTROL)
+		core_control_enabled = 0;
+		hotplug_enabled = 0;
+#else
 		core_control_enabled = 1;
 		hotplug_enabled = 1;
+#endif
 	}
 
 	key = "qcom,core-limit-temp";

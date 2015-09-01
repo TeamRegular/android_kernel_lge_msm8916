@@ -17,6 +17,7 @@
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
+#include <mach/board_lge.h>		//to use lge_get_board_revno()
 
 /* Logging macro */
 #undef CDBG
@@ -314,6 +315,90 @@ static int32_t msm_sensor_fill_ois_subdevid_by_name(
 	return rc;
 }
 
+#if defined(CONFIG_LG_PROXY)
+static int32_t msm_sensor_fill_proxy_subdevid_by_name(
+				struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int32_t rc = 0;
+	struct device_node *src_node = NULL;
+	uint32_t val = 0;
+	int32_t *ois_subdev_id;
+	struct  msm_sensor_info_t *sensor_info;
+	struct device_node *of_node = s_ctrl->of_node;
+
+	if (!of_node)
+		return -EINVAL;
+
+	sensor_info = s_ctrl->sensordata->sensor_info;
+	ois_subdev_id = &sensor_info->subdev_id[SUB_MODULE_PROXY];
+	/*
+	 * string for ois name is valid, set sudev id to -1
+	 * and try to found new id
+	 */
+	*ois_subdev_id = -1;
+
+	src_node = of_parse_phandle(of_node, "qcom,proxy-src", 0);
+	if (!src_node) {
+		CDBG("%s:%d src_node NULL\n", __func__, __LINE__);
+	} else {
+		rc = of_property_read_u32(src_node, "cell-index", &val);
+		CDBG("%s qcom,proxy cell index %d, rc %d\n", __func__,
+			val, rc);
+		if (rc < 0) {
+			pr_err("%s failed %d\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+		*ois_subdev_id = val;
+		of_node_put(src_node);
+		src_node = NULL;
+	}
+
+	return rc;
+}
+#endif
+
+#if defined(CONFIG_LG_TCS)
+static int32_t msm_sensor_fill_tcs_subdevid_by_name(
+                                struct msm_sensor_ctrl_t *s_ctrl)
+{
+        int32_t rc = 0;
+        struct device_node *src_node = NULL;
+        uint32_t val = 0;
+        int32_t *tcs_subdev_id;
+        struct  msm_sensor_info_t *sensor_info;
+        struct device_node *of_node = s_ctrl->of_node;
+
+        if (!of_node)
+                return -EINVAL;
+
+        sensor_info = s_ctrl->sensordata->sensor_info;
+        tcs_subdev_id = &sensor_info->subdev_id[SUB_MODULE_TCS];
+        /*
+         * string for tcs name is valid, set sudev id to -1
+         * and try to found new id
+         */
+        *tcs_subdev_id = -1;
+
+        src_node = of_parse_phandle(of_node, "qcom,tcs-src", 0);
+        if (!src_node) {
+                CDBG("%s:%d src_node NULL\n", __func__, __LINE__);
+        } else {
+                rc = of_property_read_u32(src_node, "cell-index", &val);
+                CDBG("%s qcom,tcs cell index %d, rc %d\n", __func__,
+                        val, rc);
+                if (rc < 0) {
+                        pr_err("%s failed %d\n", __func__, __LINE__);
+                        return -EINVAL;
+                }
+                *tcs_subdev_id = val;
+                of_node_put(src_node);
+                src_node = NULL;
+        }
+
+        return rc;
+}
+#endif
+
 static int32_t msm_sensor_fill_slave_info_init_params(
 	struct msm_camera_sensor_slave_info *slave_info,
 	struct msm_sensor_info_t *sensor_info)
@@ -446,11 +531,27 @@ static int32_t msm_sensor_get_power_down_settings(void *setting,
 	uint16_t size_down = 0;
 	uint16_t i = 0;
 	struct msm_sensor_power_setting *pd = NULL;
+/*                                                                       */
+	hw_rev_type rev_type = 0;
+	pr_info("%s:%d\n", __func__, __LINE__);
+	rev_type = lge_get_board_revno();
 
-	/* DOWN */
-	size_down = slave_info->power_setting_array.size_down;
-	if (!size_down || size_down > MAX_POWER_CONFIG)
-		size_down = slave_info->power_setting_array.size;
+	if (rev_type == HW_REV_A){
+		/* DOWN */
+		size_down = slave_info->power_setting_array.size_down_a;
+		if (!size_down || size_down > MAX_POWER_CONFIG){
+			if (slave_info->power_setting_array.size_a)
+				size_down = slave_info->power_setting_array.size_a;
+			else
+				size_down = slave_info->power_setting_array.size;
+		}
+	}else{ //QCT
+		/* DOWN */
+		size_down = slave_info->power_setting_array.size_down;
+		if (!size_down || size_down > MAX_POWER_CONFIG)
+			size_down = slave_info->power_setting_array.size;
+	}
+/*                                                                       */
 	/* Validate size_down */
 	if (size_down > MAX_POWER_CONFIG) {
 		pr_err("failed: invalid size_down %d", size_down);
@@ -463,6 +564,7 @@ static int32_t msm_sensor_get_power_down_settings(void *setting,
 		return -EFAULT;
 	}
 
+#if 0 /*                                                                     */
 	if (slave_info->power_setting_array.power_down_setting) {
 #ifdef CONFIG_COMPAT
 		if (is_compat_task()) {
@@ -483,15 +585,23 @@ static int32_t msm_sensor_get_power_down_settings(void *setting,
 			return -EFAULT;
 		}
 	} else {
-
+#endif
+/*                                                                       */
+	if ((rev_type == HW_REV_A) && (slave_info->power_setting_array.power_setting_a != NULL))
+		rc = msm_sensor_create_pd_settings(setting, pd, size_down,
+			slave_info->power_setting_array.power_setting_a);
+	else //QCT
 		rc = msm_sensor_create_pd_settings(setting, pd, size_down,
 			slave_info->power_setting_array.power_setting);
+/*                                                                       */
 		if (rc < 0) {
 			pr_err("failed");
 			kfree(pd);
 			return -EFAULT;
 		}
+#if 0 /*                                                                     */
 	}
+#endif
 
 	/* Fill power down setting and power down setting size */
 	power_info->power_down_setting = pd;
@@ -515,7 +625,16 @@ static int32_t msm_sensor_get_power_up_settings(void *setting,
 	uint16_t i = 0;
 	struct msm_sensor_power_setting *pu = NULL;
 
-	size = slave_info->power_setting_array.size;
+/*                                                                       */
+	hw_rev_type rev_type = 0;
+	rev_type = lge_get_board_revno();
+	pr_err("%s:%d, rev_type:%d\n", __func__, __LINE__, rev_type);
+
+	if ((rev_type == HW_REV_A) && slave_info->power_setting_array.size_a)
+		size = slave_info->power_setting_array.size_a;
+	else //QCT
+		size = slave_info->power_setting_array.size;
+/*                                                                       */
 
 	/* Validate size */
 	if ((size == 0) || (size > MAX_POWER_CONFIG)) {
@@ -542,15 +661,49 @@ static int32_t msm_sensor_get_power_up_settings(void *setting,
 		}
 	} else
 #endif
+/*                                                                       */
 	{
-		if (copy_from_user(pu,
-			(void *)slave_info->power_setting_array.power_setting,
-			sizeof(*pu) * size)) {
-			pr_err("failed: copy_from_user");
-			kfree(pu);
-			return -EFAULT;
+		switch(rev_type) {
+		case HW_REV_A:
+			if (slave_info->power_setting_array.power_setting_a != NULL){
+				if (copy_from_user(pu,
+					(void *)slave_info->power_setting_array.power_setting_a,
+					sizeof(*pu) * size)) {
+					pr_err("failed: copy_from_user");
+					kfree(pu);
+					return -EFAULT;
+				}
+			}else{
+				if (copy_from_user(pu,
+					(void *)slave_info->power_setting_array.power_setting,
+					sizeof(*pu) * size)) {
+					pr_err("failed: copy_from_user");
+					kfree(pu);
+					return -EFAULT;
+				}
+			}
+			break;
+		case HW_REV_B:
+			if (copy_from_user(pu,
+				(void *)slave_info->power_setting_array.power_setting,
+				sizeof(*pu) * size)) {
+				pr_err("failed: copy_from_user");
+				kfree(pu);
+				return -EFAULT;
+			}
+			break;
+		default: //QCT
+			if (copy_from_user(pu,
+				(void *)slave_info->power_setting_array.power_setting,
+				sizeof(*pu) * size)) {
+				pr_err("failed: copy_from_user");
+				kfree(pu);
+				return -EFAULT;
+			}
+			break;
 		}
 	}
+/*                                                                       */
 
 	/* Print power setting */
 	for (i = 0; i < size; i++) {
@@ -558,7 +711,6 @@ static int32_t msm_sensor_get_power_up_settings(void *setting,
 			pu[i].seq_type, pu[i].seq_val,
 			pu[i].config_val, pu[i].delay);
 	}
-
 
 	/* Fill power up setting and power up setting size */
 	power_info->power_setting = pu;
@@ -635,7 +787,6 @@ int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_camera_slave_info        *camera_info = NULL;
 
 	unsigned long                        mount_pos = 0;
-	uint32_t                             is_yuv;
 
 	/* Validate input parameters */
 	if (!setting) {
@@ -696,7 +847,6 @@ int32_t msm_sensor_driver_probe(void *setting,
 			setting32.is_init_params_valid;
 		slave_info->sensor_init_params = setting32.sensor_init_params;
 		slave_info->is_flash_supported = setting32.is_flash_supported;
-		slave_info->output_format = setting32.output_format;
 	} else
 #endif
 	{
@@ -715,7 +865,9 @@ int32_t msm_sensor_driver_probe(void *setting,
 	CDBG("sensor_id_reg_addr 0x%x",
 		slave_info->sensor_id_info.sensor_id_reg_addr);
 	CDBG("sensor_id 0x%x", slave_info->sensor_id_info.sensor_id);
+	CDBG("size_a %d", slave_info->power_setting_array.size_a); //                                                                   
 	CDBG("size %d", slave_info->power_setting_array.size);
+	CDBG("size down_a %d", slave_info->power_setting_array.size_down_a); //                                                                   
 	CDBG("size down %d", slave_info->power_setting_array.size_down);
 
 	if (slave_info->is_init_params_valid) {
@@ -867,6 +1019,23 @@ int32_t msm_sensor_driver_probe(void *setting,
 		goto free_camera_info;
 	}
 
+#if defined(CONFIG_LG_PROXY)
+	rc = msm_sensor_fill_proxy_subdevid_by_name(s_ctrl);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto free_camera_info;
+	}
+#endif
+
+#if defined(CONFIG_LG_TCS)
+	rc = msm_sensor_fill_tcs_subdevid_by_name(s_ctrl);
+                if (rc < 0) {
+                        pr_err("%s failed %d\n", __func__, __LINE__);
+                        goto free_camera_info;
+                }
+
+#endif
+
 	/* Power up and probe sensor */
 	rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
 	if (rc < 0) {
@@ -904,6 +1073,11 @@ int32_t msm_sensor_driver_probe(void *setting,
 		goto camera_power_down;
 	}
 
+	//                                                                                      
+#if (SUPPORT_ACTUATOR_POWER_DOWN == 1)
+	msm_actuator_pwdn_mode(s_ctrl);
+#endif
+
 	/* Power down */
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 
@@ -921,12 +1095,9 @@ int32_t msm_sensor_driver_probe(void *setting,
 		goto free_camera_info;
 	}
 	/* Update sensor mount angle and position in media entity flag */
-	is_yuv = (slave_info->output_format == MSM_SENSOR_YCBCR) ? 1 : 0;
-	mount_pos = is_yuv << 25 |
-		(s_ctrl->sensordata->sensor_info->position << 16) |
-		((s_ctrl->sensordata->
-		sensor_info->sensor_mount_angle / 90) << 8);
-
+	mount_pos = s_ctrl->sensordata->sensor_info->position << 16;
+	mount_pos = mount_pos | ((s_ctrl->sensordata->sensor_info->
+		sensor_mount_angle / 90) << 8);
 	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;
 
 	/*Save sensor info*/
@@ -1115,6 +1286,15 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 
 	CDBG("%s qcom,mclk-23880000 = %d\n", __func__,
 		s_ctrl->set_mclk_23880000);
+
+//                                                                                      
+#if (SUPPORT_ACTUATOR_POWER_DOWN == 1)
+	// optional property, don't return error if absent
+	of_property_read_string(of_node, "lge,vcm-pwdn",
+		&s_ctrl->vcm_pwdn);
+	pr_err("%s lge,vcm-pwdn %s\n", __func__,
+			s_ctrl->vcm_pwdn);
+#endif
 
 	return rc;
 

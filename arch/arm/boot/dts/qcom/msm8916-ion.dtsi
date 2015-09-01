@@ -27,6 +27,7 @@
 		};
 
 		qcom,ion-heap@8 { /* CP_MM HEAP */
+			status = "ok";
 			compatible = "qcom,msm-ion-reserve";
 			reg = <8>;
 			qcom,heap-align = <0x1000>;
@@ -37,7 +38,7 @@
 		qcom,ion-heap@27 { /* QSEECOM HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <27>;
-			linux,contiguous-region = <&venus_qseecom_mem>;
+			linux,contiguous-region = <&qseecom_mem>;
 			qcom,ion-heap-type = "DMA";
 		};
 

@@ -72,6 +72,11 @@
 
 #include "ci13xxx_udc.h"
 
+#ifdef CONFIG_USB_G_LGE_ANDROID_PFSC
+#include <mach/board_lge.h>
+#define PORTSC_PFSC BIT(24)
+#endif
+
 /******************************************************************************
  * DEFINE
  *****************************************************************************/
@@ -337,6 +342,10 @@ static int hw_device_reset(struct ci13xxx *udc)
 {
 	int delay_count = 25; /* 250 usec */
 
+#ifdef CONFIG_USB_G_LGE_ANDROID_PFSC
+	enum lge_boot_mode_type boot_mode;
+#endif
+
 	/* should flush & stop before reset */
 	hw_cwrite(CAP_ENDPTFLUSH, ~0, ~0);
 	hw_cwrite(CAP_USBCMD, USBCMD_RS, 0);
@@ -375,6 +384,19 @@ static int hw_device_reset(struct ci13xxx *udc)
 		pr_err("lpm = %i", hw_bank.lpm);
 		return -ENODEV;
 	}
+
+#ifdef CONFIG_USB_G_LGE_ANDROID_PFSC
+
+	/* USB FS only used in 130K */
+
+	boot_mode = lge_get_boot_mode();
+    if ((boot_mode == LGE_BOOT_MODE_QEM_130K) ||
+        (boot_mode == LGE_BOOT_MODE_PIF_130K))
+	{
+		hw_cwrite(CAP_PORTSC, PORTSC_PFSC, PORTSC_PFSC);
+	}
+
+#endif
 
 	return 0;
 }
@@ -2955,6 +2977,7 @@ __acquires(udc->lock)
 					udc->gadget.remote_wakeup = 1;
 					err = isr_setup_status_phase(udc);
 					break;
+#ifndef CONFIG_USB_G_LGE_ANDROID
 				case USB_DEVICE_B_HNP_ENABLE:
 					udc->gadget.b_hnp_enable = 1;
 					err = isr_setup_status_phase(udc);
@@ -2965,6 +2988,17 @@ __acquires(udc->lock)
 					break;
 				case USB_DEVICE_A_ALT_HNP_SUPPORT:
 					break;
+#else
+				case USB_DEVICE_B_HNP_ENABLE:
+					err = 0;
+					break;
+				case USB_DEVICE_A_HNP_SUPPORT:
+					err = 0;
+					break;
+				case USB_DEVICE_A_ALT_HNP_SUPPORT:
+					err = 0;
+					break;
+#endif
 				case USB_DEVICE_TEST_MODE:
 					tmode = le16_to_cpu(req.wIndex) >> 8;
 					switch (tmode) {
@@ -2977,6 +3011,7 @@ __acquires(udc->lock)
 						err = isr_setup_status_phase(
 								udc);
 						break;
+#ifndef CONFIG_USB_G_LGE_ANDROID
 					case TEST_OTG_SRP_REQD:
 						udc->gadget.otg_srp_reqd = 1;
 						err = isr_setup_status_phase(
@@ -2987,6 +3022,14 @@ __acquires(udc->lock)
 						err = isr_setup_status_phase(
 								udc);
 						break;
+#else
+					case TEST_OTG_SRP_REQD:
+						err = 0;
+						break;
+					case TEST_OTG_HNP_REQD:
+						err = 0;
+						break;
+#endif //                             
 					default:
 						break;
 					}
@@ -4061,9 +4104,10 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 
 	_udc = udc;
 	return retval;
-
+#ifdef CONFIG_USB_GADGET_DEBUG_FILES
 del_udc:
 	usb_del_gadget_udc(&udc->gadget);
+#endif
 remove_trans:
 	if (udc->transceiver)
 		otg_set_peripheral(udc->transceiver->otg, &udc->gadget);

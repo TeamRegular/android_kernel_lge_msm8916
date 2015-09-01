@@ -30,6 +30,11 @@
 #include <sound/asound.h>
 #include "msm-dts-eagle.h"
 
+#ifdef CONFIG_MACH_LGE
+#define VPM_TX_SM_LVVEFQ    (0x1000BFF0)
+#define VPM_TX_DM_LVVEFQ    (0x1000BFF1)
+#endif
+
 #define TIMEOUT_MS 1000
 
 #define RESET_COPP_ID 99
@@ -1840,6 +1845,10 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	}
 
 	if ((topology == VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
+#ifdef CONFIG_MACH_LGE
+		(topology == VPM_TX_SM_LVVEFQ ) ||
+		(topology == VPM_TX_DM_LVVEFQ ) ||
+#endif
 	    (topology == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY) ||
 	    (topology == VPM_TX_DM_RFECNS_COPP_TOPOLOGY))
 		rate = 16000;

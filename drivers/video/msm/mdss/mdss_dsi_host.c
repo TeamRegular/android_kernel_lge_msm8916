@@ -304,6 +304,9 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 		data |= ((pinfo->traffic_mode & 0x03) << 8);
 		data |= ((pinfo->dst_format & 0x03) << 4); /* 2 bits */
 		data |= (pinfo->vc & 0x03);
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL)
+		data |= BIT(31);
+#endif
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0010, data);
 
 		data = 0;
@@ -355,6 +358,10 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 	if (pinfo->data_lane0)
 		dsi_ctrl |= BIT(4);
 
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL)
+	MIPI_OUTP(ctrl_pdata->ctrl_base + 0xBC, 0xFFFFF);
+	MIPI_OUTP(ctrl_pdata->ctrl_base + 0xC0, 0x111);
+#endif
 
 	data = 0;
 	if (pinfo->te_sel)
@@ -733,9 +740,17 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 
 		data0 = MIPI_INP(ctrl->ctrl_base + 0x0004);
 		/* Disable DSI video mode */
+#ifndef CONFIG_MACH_LGE
 		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f5);
+#else
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, data0 & ~(0x2));
+#endif
 		/* Disable DSI controller */
+#ifndef CONFIG_MACH_LGE
 		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f4);
+#else
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, data0 & ~(0x3));
+#endif
 		/* "Force On" all dynamic clocks */
 		MIPI_OUTP(ctrl->ctrl_base + 0x11c, 0x100a00);
 
@@ -748,7 +763,11 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		/* Remove "Force On" all dynamic clocks */
 		MIPI_OUTP(ctrl->ctrl_base + 0x11c, 0x00);
 		/* Enable DSI controller */
+#ifndef CONFIG_MACH_LGE
 		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f5);
+#else
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, data0 & ~(0x2));
+#endif
 
 		/*
 		 * Toggle Clk lane Force TX stop so that
@@ -779,7 +798,11 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(ctrl->ctrl_base + 0x0ac, ln_ctrl0 & ~BIT(20));
 
 		/* Enable Video mode for DSI controller */
+#ifndef CONFIG_MACH_LGE
 		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f7);
+#else
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, data0);
+#endif
 		/* Enable PHY contention detection and receiver */
 		MIPI_OUTP((ctrl->phy_io.base) + 0x0188, 0x6);
 		/*
@@ -2107,6 +2130,11 @@ static void dsi_send_events(struct mdss_dsi_ctrl_pdata *ctrl,
 	spin_unlock(&dsi_event.event_lock);
 }
 
+#ifdef CONFIG_MACH_LGE
+#define DLNx_ENABLED_MASK 0x00F0
+#define DLNx_ENABLED_MASK_SHIFT 0x4
+#endif
+
 static int dsi_event_thread(void *data)
 {
 	struct mdss_dsi_event *ev;
@@ -2114,7 +2142,11 @@ static int dsi_event_thread(void *data)
 	struct mdss_dsi_ctrl_pdata *ctrl;
 	unsigned long flag;
 	struct sched_param param;
+#ifndef CONFIG_MACH_LGE
 	u32 todo = 0, ln_status, force_clk_ln_hs;
+#else
+	u32 todo = 0, ln_status, dln_enabled, dln_status, cln_status, force_clk_ln_hs;
+#endif
 	u32 arg;
 	int ret;
 
@@ -2172,17 +2204,33 @@ static int dsi_event_thread(void *data)
 			 * clock lane is not in Stop State.
 			 */
 			ln_status = MIPI_INP(ctrl->ctrl_base + 0x00a8);
+#ifdef CONFIG_MACH_LGE
+			dln_enabled = (MIPI_INP(ctrl->ctrl_base + 0x0004) & DLNx_ENABLED_MASK) >> DLNx_ENABLED_MASK_SHIFT;
+			dln_status = ln_status & dln_enabled;
+			cln_status = ln_status & DSI_CLK_LANE_STOP_STATE;
+#endif
 			force_clk_ln_hs = (MIPI_INP(ctrl->ctrl_base + 0x00ac)
 					& BIT(28));
+#ifndef CONFIG_MACH_LGE
 			pr_debug("%s: lane_status: 0x%x\n",
 				       __func__, ln_status);
+#else
+			pr_debug("%s: lane_status: 0x%x, dln_enabled: 0x%x, dln_status: 0x%x, cln_status: 0x%x\n",
+				       __func__, ln_status, dln_enabled, dln_status, cln_status);
+#endif
 			if (ctrl->recovery
 					&& !(force_clk_ln_hs)
+#ifndef CONFIG_MACH_LGE
 					&& (ln_status
 						& DSI_DATA_LANES_STOP_STATE)
 					&& !(ln_status
 						& DSI_CLK_LANE_STOP_STATE)) {
 				pr_debug("%s: Handling overflow event.\n",
+#else
+					&& (dln_status & DSI_DATA_LANES_STOP_STATE )
+					&& !cln_status) {
+				pr_info("%s: Handling overflow event.\n",
+#endif
 								__func__);
 				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
 				mdss_dsi_ctl_phy_reset(ctrl);

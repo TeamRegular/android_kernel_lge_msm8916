@@ -25,6 +25,17 @@
 #define MAX_OIS_MOD_NAME_SIZE 32
 #define MAX_OIS_NAME_SIZE 32
 #define MAX_OIS_REG_SETTINGS 800
+/*                                                        */
+#define MAX_PROXY_MOD_NAME_SIZE 32
+#define MAX_PROXY_NAME_SIZE 32
+#define MAX_PROXY_REG_SETTINGS 800
+/*                                                        */
+
+/*                                                   */
+#define MAX_TCS_MOD_NAME_SIZE 32
+#define MAX_TCS_NAME_SIZE 32
+#define MAX_TCS_REG_SETTINGS 800
+/*                                                   */
 
 #define MOVE_NEAR 0
 #define MOVE_FAR  1
@@ -76,6 +87,13 @@ enum sensor_sub_module_t {
 	SUB_MODULE_CSIPHY,
 	SUB_MODULE_CSIPHY_3D,
 	SUB_MODULE_OIS,
+/*                                                        */
+	SUB_MODULE_PROXY,
+/*                                                        */
+/*                                                   */
+	SUB_MODULE_TCS,
+/*                                                   */
+
 	SUB_MODULE_MAX,
 };
 
@@ -163,6 +181,13 @@ enum cci_i2c_master_t {
 	MASTER_MAX,
 };
 
+/*                                                                                                                   */
+struct msm_fps_range_setting{
+   int32_t min_fps;
+   int32_t max_fps;
+};
+/*                                                                                                                    */
+
 struct msm_camera_i2c_array_write_config {
 	struct msm_camera_i2c_reg_setting conf_array;
 	uint16_t slave_addr;
@@ -203,6 +228,7 @@ struct msm_sensor_info_t {
 	uint32_t sensor_mount_angle;
 	int modes_supported;
 	enum camb_position_t position;
+	char     maker_name[MAX_SENSOR_NAME]; /*                                                */
 };
 
 struct camera_vreg_t {
@@ -289,6 +315,19 @@ struct msm_sensor_power_setting32 {
 	compat_uptr_t data[10];
 };
 
+//                                                                     
+#if 1
+struct msm_sensor_power_setting_array32 {
+	compat_uptr_t power_setting_a;
+	compat_uptr_t power_setting;
+	uint16_t size_a;
+	uint16_t size;
+	compat_uptr_t power_down_setting_a;
+	compat_uptr_t power_down_setting;
+	uint16_t size_down_a;
+	uint16_t size_down;
+};
+#else //QCT
 struct msm_sensor_power_setting_array32 {
 	struct msm_sensor_power_setting32 power_setting_a[MAX_POWER_CONFIG];
 	compat_uptr_t power_setting;
@@ -298,6 +337,8 @@ struct msm_sensor_power_setting_array32 {
 	compat_uptr_t power_down_setting;
 	uint16_t size_down;
 };
+#endif
+//                                                                     
 
 struct msm_camera_sensor_slave_info32 {
 	char sensor_name[32];
@@ -314,7 +355,6 @@ struct msm_camera_sensor_slave_info32 {
 	uint8_t  is_init_params_valid;
 	struct msm_sensor_init_params sensor_init_params;
 	uint8_t is_flash_supported;
-	enum msm_sensor_output_format_t output_format;
 };
 
 struct msm_camera_csid_lut_params32 {
@@ -400,6 +440,14 @@ enum msm_sensor_cfg_type_t {
 	CFG_SET_WHITE_BALANCE,
 	CFG_SET_AUTOFOCUS,
 	CFG_CANCEL_AUTOFOCUS,
+	CFG_PAGE_MODE_READ_I2C_ARRAY,	/*                                                            */
+	CFG_SET_FRAMERATE_FOR_SOC,		/*                                                                     */
+/*                                                                              */
+	CFG_SET_AEC_ROI,
+	CFG_SET_AWB_LOCK,
+	CFG_SET_AEC_LOCK,
+	CFG_SET_INIT_SETTING_VT,
+/*                                                                              */
 	CFG_SET_STREAM_TYPE,
 };
 
@@ -421,6 +469,38 @@ enum msm_ois_cfg_type_t {
 	CFG_OIS_CONTROL,
 	CFG_OIS_I2C_WRITE_SEQ_TABLE,
 };
+
+/*                                                        */
+enum msm_proxy_cfg_type_t {
+	CFG_PROXY_INIT,
+	CFG_PROXY_ON,
+	CFG_PROXY_OFF,
+	CFG_GET_PROXY,
+	CFG_PROXY_THREAD_ON,
+	CFG_PROXY_THREAD_PAUSE,
+	CFG_PROXY_THREAD_RESTART,
+	CFG_PROXY_THREAD_OFF,
+	CFG_PROXY_CAL,
+	CFG_PROXY_POWERDOWN,
+	CFG_PROXY_POWERUP,
+};
+/*                                                        */
+
+/*                                                   */
+enum msm_tcs_cfg_type_t {
+        CFG_TCS_INIT,
+        CFG_TCS_ON,
+        CFG_TCS_OFF,
+        CFG_GET_TCS,
+        CFG_TCS_THREAD_ON,
+        CFG_TCS_THREAD_PAUSE,
+        CFG_TCS_THREAD_RESTART,
+        CFG_TCS_THREAD_OFF,
+        CFG_TCS_POWERDOWN,
+        CFG_TCS_POWERUP,
+        CFG_TCS_AAT_MODE,
+};
+/*                                                   */
 
 enum msm_ois_i2c_operation {
 	MSM_OIS_WRITE = 0,
@@ -448,6 +528,29 @@ struct msm_ois_params_t {
 struct msm_ois_set_info_t {
 	struct msm_ois_params_t ois_params;
 };
+
+struct msm_proxy_info_t{
+	uint16_t proxy_val;
+	uint32_t proxy_conv;
+	uint32_t proxy_sig;
+	uint32_t proxy_amb;
+	uint32_t proxy_raw;
+	uint32_t cal_count;
+	uint32_t cal_done;
+};
+
+/*                                                   */
+struct msm_tcs_info_t{
+	uint32_t status;
+	uint32_t clear;
+	uint32_t red;
+	uint32_t green;
+	uint32_t blue;
+	uint32_t ir;
+	uint32_t extra1;
+	uint32_t extra2;
+};
+/*                                                   */
 
 struct msm_actuator_move_params_t {
 	int8_t dir;
@@ -507,10 +610,10 @@ struct msm_actuator_get_info_t {
 };
 
 enum af_camera_name {
-	ACTUATOR_MAIN_CAM_0,
-	ACTUATOR_MAIN_CAM_1,
-	ACTUATOR_MAIN_CAM_2,
-	ACTUATOR_MAIN_CAM_3,
+	ACTUATOR_MAIN_CAM_0, //                                                
+	ACTUATOR_MAIN_CAM_1, //                                                
+	ACTUATOR_MAIN_CAM_2, //                                               
+	ACTUATOR_MAIN_CAM_3, //                                                
 	ACTUATOR_MAIN_CAM_4,
 	ACTUATOR_MAIN_CAM_5,
 	ACTUATOR_WEB_CAM_0,
@@ -525,6 +628,24 @@ struct msm_ois_cfg_data {
 		struct msm_camera_i2c_seq_reg_setting *settings;
 	} cfg;
 };
+
+/*                                                        */
+struct msm_proxy_cfg_data {
+	int cfgtype;
+	union {
+		struct msm_proxy_info_t set_info;
+	} cfg;
+};
+/*                                                        */
+
+/*                                                   */
+struct msm_tcs_cfg_data {
+        int cfgtype;
+        union {
+                struct msm_tcs_info_t set_info;
+} cfg;
+};
+/*                                                   */
 
 struct msm_actuator_set_position_t {
 	uint16_t number_of_steps;
@@ -625,9 +746,18 @@ struct sensor_init_cfg_data {
 
 #define VIDIOC_MSM_OIS_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 11, struct msm_ois_cfg_data)
+/*                                                        */
+#define VIDIOC_MSM_PROXY_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 12, struct msm_proxy_cfg_data)
+/*                                                        */
 
 #define VIDIOC_MSM_FLASH_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 13, struct msm_flash_cfg_data_t)
+
+/*                                                 */
+#define VIDIOC_MSM_TCS_CFG \
+        _IOWR('V', BASE_VIDIOC_PRIVATE + 14, struct msm_tcs_cfg_data)
+/*                                                 */
 
 #ifdef CONFIG_COMPAT
 struct msm_camera_i2c_reg_setting32 {
@@ -636,7 +766,6 @@ struct msm_camera_i2c_reg_setting32 {
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	enum msm_camera_i2c_data_type data_type;
 	uint16_t delay;
-	enum msm_camera_qup_i2c_write_batch_t qup_i2c_batch;
 };
 
 struct msm_actuator_tuning_params_t32 {
@@ -733,6 +862,24 @@ struct msm_ois_cfg_data32 {
 	} cfg;
 };
 
+/*                                                        */
+struct msm_proxy_info_t32{
+	uint16_t proxy_val;
+	uint32_t proxy_conv;
+	uint32_t proxy_sig;
+	uint32_t proxy_amb;
+	uint32_t proxy_raw;
+	uint32_t cal_count;
+	uint32_t cal_done;
+};
+
+struct msm_proxy_cfg_data32 {
+	int cfgtype;
+	union {
+		struct msm_proxy_info_t set_info;
+	} cfg;
+};
+/*                                                        */
 struct msm_flash_init_info_t32 {
 	enum msm_flash_driver_type flash_driver_type;
 	compat_uptr_t power_setting_array;
@@ -768,12 +915,19 @@ struct msm_flash_cfg_data_t32 {
 
 #define VIDIOC_MSM_OIS_CFG32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 11, struct msm_ois_cfg_data32)
-
+/*                                                        */
+#define VIDIOC_MSM_PROXY_CFG32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 12, struct msm_proxy_cfg_data32)
+/*                                                        */
 #define VIDIOC_MSM_CSID_IO_CFG32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct csid_cfg_data32)
 
 #define VIDIOC_MSM_FLASH_CFG32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 13, struct msm_flash_cfg_data_t32)
 #endif
+/*                                                   */
+#define VIDIOC_MSM_TCS_CFG32 \
+        _IOWR('V', BASE_VIDIOC_PRIVATE + 14, struct msm_tcs_cfg_data32)
+/*                                                   */
 
 #endif /* __LINUX_MSM_CAM_SENSOR_H */

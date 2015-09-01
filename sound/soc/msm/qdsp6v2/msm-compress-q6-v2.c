@@ -793,7 +793,7 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 			pr_err("%s: stream reg failed:%d\n", __func__, ret);
 			return ret;
 		}
-	}
+ 	}
 
 	ret = msm_compr_set_volume(cstream, 0, 0);
 	if (ret < 0)
@@ -802,11 +802,11 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	ret = q6asm_set_softpause(ac, &softpause);
 	if (ret < 0)
 		pr_err("%s: Send SoftPause Param failed ret=%d\n",
-				__func__, ret);
+			__func__, ret);
 	ret = q6asm_set_softvolume(ac, &softvol);
 	if (ret < 0)
 		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
-				__func__, ret);
+			__func__, ret);
 
 	ret = q6asm_set_io_mode(ac, (COMPRESSED_STREAM_IO | ASYNC_IO_MODE));
 	if (ret < 0) {
@@ -1084,12 +1084,17 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	case SNDRV_PCM_RATE_11025:
 		prtd->sample_rate = 11025;
 		break;
-	/* ToDo: What about 12K and 24K sample rates ? */
+	case SNDRV_PCM_RATE_12000:
+		prtd->sample_rate = 12000;
+		break;
 	case SNDRV_PCM_RATE_16000:
 		prtd->sample_rate = 16000;
 		break;
 	case SNDRV_PCM_RATE_22050:
 		prtd->sample_rate = 22050;
+		break;
+	case SNDRV_PCM_RATE_24000:
+		prtd->sample_rate = 24000;
 		break;
 	case SNDRV_PCM_RATE_32000:
 		prtd->sample_rate = 32000;

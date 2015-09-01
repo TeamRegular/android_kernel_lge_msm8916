@@ -44,6 +44,10 @@
 
 #include "sdhci-pltfm.h"
 
+#if defined(CONFIG_MACH_MSM8916_C50_MPCS_US) || defined(CONFIG_MACH_MSM8916_C50_TMO_US)
+#include <mach/board_lge.h>
+#endif
+
 enum sdc_mpm_pin_state {
 	SDC_DAT1_DISABLE,
 	SDC_DAT1_ENABLE,
@@ -3249,6 +3253,22 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	u16 host_version;
 	u32 pwr, irq_status, irq_ctl;
 	unsigned long flags;
+
+#if defined(CONFIG_MACH_MSM8916_C50_MPCS_US) || defined(CONFIG_MACH_MSM8916_C50_TMO_US)
+	int rc;
+	if(gpio_is_valid(962)) {
+		rc = gpio_request(962, "sd_ldo_en");
+		mdelay(5);
+
+		if(rc) {
+                	pr_err("sd_ldo_en gpio failed %d\n", rc);
+	} else {
+		rc = gpio_direction_output(962, 1);
+		mdelay(5);
+		gpio_set_value(962, 1);
+		}
+	}
+#endif
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),

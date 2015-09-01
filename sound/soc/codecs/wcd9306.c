@@ -188,6 +188,10 @@ enum {
 	RX_MIX1_INP_SEL_AUXRX,
 };
 
+#ifdef CONFIG_MACH_LGE
+	static int tapan_tx_mute = 0;
+#endif
+
 #define TAPAN_COMP_DIGITAL_GAIN_OFFSET 3
 
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
@@ -1085,6 +1089,43 @@ static int tapan_config_compander(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+#ifdef CONFIG_MACH_LGE
+static const char *const tapan_tx_mute_text[] = {"unmute", "mute"};
+static const struct soc_enum tapan_tx_mute_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, tapan_tx_mute_text),
+};
+
+static int tapan_tx_mute_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: tapan_tx_mute = %d", __func__, tapan_tx_mute);
+	ucontrol->value.integer.value[0] = tapan_tx_mute;
+	return 0;
+}
+static int tapan_tx_mute_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	u16 tx_vol_ctl_reg0 = TAPAN_A_CDC_TX1_VOL_CTL_CFG;
+	u16 tx_vol_ctl_reg1 = TAPAN_A_CDC_TX1_VOL_CTL_CFG + 8;
+	switch (ucontrol->value.integer.value[0]) {
+		case 0:
+			snd_soc_update_bits(codec, tx_vol_ctl_reg0, 0x01, 0);
+			snd_soc_update_bits(codec, tx_vol_ctl_reg1, 0x01, 0);
+			break;
+		case 1:
+			snd_soc_update_bits(codec, tx_vol_ctl_reg0, 0x01, 1);
+			snd_soc_update_bits(codec, tx_vol_ctl_reg1, 0x01, 1);
+			break;
+		default:
+			break;
+	}
+	tapan_tx_mute = ucontrol->value.integer.value[0];
+	pr_debug("%s: tapan_tx_mute = %d\n", __func__, tapan_tx_mute);
+	return 0;
+}
+#endif
+
 static const char * const tapan_loopback_mode_ctrl_text[] = {
 		"DISABLE", "ENABLE"};
 static const struct soc_enum tapan_loopback_mode_ctl_enum[] = {
@@ -1185,6 +1226,10 @@ static int tapan_hph_impedance_get(struct snd_kcontrol *kcontrol,
 
 static const struct snd_kcontrol_new tapan_common_snd_controls[] = {
 
+#ifdef CONFIG_MACH_LGE
+	SOC_ENUM_EXT("TX_VOL_CTL_MUTE", tapan_tx_mute_enum[0],
+		tapan_tx_mute_get, tapan_tx_mute_put),
+#endif
 	SOC_ENUM_EXT("EAR PA Gain", tapan_ear_pa_gain_enum[0],
 		tapan_pa_gain_get, tapan_pa_gain_put),
 
@@ -1208,7 +1253,19 @@ static const struct snd_kcontrol_new tapan_common_snd_controls[] = {
 	SOC_SINGLE_TLV("ADC2 Volume", TAPAN_A_TX_2_EN, 2, 19, 0, analog_gain),
 	SOC_SINGLE_TLV("ADC3 Volume", TAPAN_A_TX_3_EN, 2, 19, 0, analog_gain),
 	SOC_SINGLE_TLV("ADC4 Volume", TAPAN_A_TX_4_EN, 2, 19, 0, analog_gain),
+#ifdef CONFIG_MACH_LGE
+	SOC_SINGLE_SX_TLV("RX1 Digital Volume", TAPAN_A_CDC_RX1_VOL_CTL_B2_CTL,
+		0, -60, 40, digital_gain),
+	SOC_SINGLE_SX_TLV("RX2 Digital Volume", TAPAN_A_CDC_RX2_VOL_CTL_B2_CTL,
+		0, -60, 40, digital_gain),
+	SOC_SINGLE_SX_TLV("RX3 Digital Volume", TAPAN_A_CDC_RX3_VOL_CTL_B2_CTL,
+		0, -60, 40, digital_gain),
 
+	SOC_SINGLE_SX_TLV("DEC1 Volume", TAPAN_A_CDC_TX1_VOL_CTL_GAIN,
+		0, -60, 40, digital_gain),
+	SOC_SINGLE_SX_TLV("DEC2 Volume", TAPAN_A_CDC_TX2_VOL_CTL_GAIN,
+		0, -60, 40, digital_gain),
+#else
 	SOC_SINGLE_SX_TLV("RX1 Digital Volume", TAPAN_A_CDC_RX1_VOL_CTL_B2_CTL,
 		0, -84, 40, digital_gain),
 	SOC_SINGLE_SX_TLV("RX2 Digital Volume", TAPAN_A_CDC_RX2_VOL_CTL_B2_CTL,
@@ -1220,6 +1277,7 @@ static const struct snd_kcontrol_new tapan_common_snd_controls[] = {
 		0, -84, 40, digital_gain),
 	SOC_SINGLE_SX_TLV("DEC2 Volume", TAPAN_A_CDC_TX2_VOL_CTL_GAIN,
 		0, -84, 40, digital_gain),
+#endif
 
 	SOC_SINGLE_SX_TLV("IIR1 INP1 Volume", TAPAN_A_CDC_IIR1_GAIN_B1_CTL,
 		0, -84, 40, digital_gain),
@@ -1307,12 +1365,21 @@ static const struct snd_kcontrol_new tapan_common_snd_controls[] = {
 static const struct snd_kcontrol_new tapan_9306_snd_controls[] = {
 	SOC_SINGLE_TLV("ADC5 Volume", TAPAN_A_TX_5_EN, 2, 19, 0, analog_gain),
 
+#ifdef CONFIG_MACH_LGE
+	SOC_SINGLE_SX_TLV("RX4 Digital Volume", TAPAN_A_CDC_RX4_VOL_CTL_B2_CTL,
+		0, -60, 40, digital_gain),
+	SOC_SINGLE_SX_TLV("DEC3 Volume", TAPAN_A_CDC_TX3_VOL_CTL_GAIN,
+		0, -60, 40, digital_gain),
+	SOC_SINGLE_SX_TLV("DEC4 Volume", TAPAN_A_CDC_TX4_VOL_CTL_GAIN,
+		0, -60, 40, digital_gain),
+#else
 	SOC_SINGLE_SX_TLV("RX4 Digital Volume", TAPAN_A_CDC_RX4_VOL_CTL_B2_CTL,
 		0, -84, 40, digital_gain),
 	SOC_SINGLE_SX_TLV("DEC3 Volume", TAPAN_A_CDC_TX3_VOL_CTL_GAIN,
 		0, -84, 40, digital_gain),
 	SOC_SINGLE_SX_TLV("DEC4 Volume", TAPAN_A_CDC_TX4_VOL_CTL_GAIN,
 		0, -84, 40, digital_gain),
+#endif
 	SOC_SINGLE_EXT("ANC Slot", SND_SOC_NOPM, 0, 100, 0, tapan_get_anc_slot,
 		tapan_put_anc_slot),
 	SOC_ENUM_EXT("ANC Function", tapan_anc_func_enum, tapan_get_anc_func,
@@ -4197,6 +4264,11 @@ int tapan_digital_mute(struct snd_soc_dai *dai, int mute)
 		__func__);
 		return 0;
 	}
+
+#ifdef CONFIG_MACH_LGE
+	mute |= tapan_tx_mute;
+	pr_debug("%s: Re-Digital Mute val = %d\n", __func__, mute);
+#endif
 
 	mute = (mute) ? 1 : 0;
 	if (!mute) {

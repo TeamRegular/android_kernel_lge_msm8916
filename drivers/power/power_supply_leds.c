@@ -19,6 +19,8 @@
 
 /* Battery specific LEDs triggers. */
 
+#if defined (CONFIG_LEDS_TRIGGERS) && !defined(CONFIG_LGE_PM)
+
 static void power_supply_update_bat_leds(struct power_supply *psy)
 {
 	union power_supply_propval status;
@@ -112,6 +114,7 @@ static void power_supply_remove_bat_triggers(struct power_supply *psy)
 	kfree(psy->charging_trig_name);
 	kfree(psy->charging_full_trig_name);
 }
+#endif
 
 /* Generated power specific LEDs triggers. */
 
