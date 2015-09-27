@@ -58,9 +58,10 @@ qcom,pm8916@0 {
 			label = "mpp";
 			linux,name = "red";
 			linux,default-trigger = "none";
-			qcom,default-state = "off";
+			qcom,default-state = "on";
 			qcom,max-current = <40>;
 			qcom,current-setting = <5>;
+			charge-current = <5>;
 			qcom,id = <6>;
 			qcom,mode = "pwm";
 			qcom,pwm-us = <1000>;

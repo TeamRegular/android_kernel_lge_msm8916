@@ -522,3 +522,10 @@ comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
 endif # NEW_LEDS
+
+config LEDS_PM8916
+	bool "LGE PM8916 Emotional LED"
+	default n
+	help
+	  This option enables support for PM8916 in MSM8916.
+	  PM8916 only supports RED LED with PWM.
