@@ -48,12 +48,20 @@ config LGE_LCD_TUNING
 	bool "Enable sysfs for LCD TUNING"
 	default n
 
+config LGE_LCD_ESD
+	bool "Enable sysfs for LCD ESD Recovery"
+	bool "Enable a function for report panel dead"
+
 config LGD_INCELL_VIDEO_FWVGA_PT_PANEL
 	bool "Enable LGD INCELL FWVGA panel"
 	default n
 
 config LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
 	bool "Enable LGD INCELL PHASE3 HD panel"
+	default n
+
+config LGD_DONGBU_INCELL_VIDEO_HD_PANEL
+	bool "Enable LGD DONGBU INCELL HD panel"
 	default n
 
 config LGE_MANUAL_FUDGE_FACTOR

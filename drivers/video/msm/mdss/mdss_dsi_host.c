@@ -49,6 +49,10 @@ struct mdss_hw mdss_dsi1_hw = {
 
 #define DSI_BTA_EVENT_TIMEOUT (HZ / 10)
 
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+extern int lcd_syna_dongbu_d_ic_id;
+#endif
+
 /* Mutex common for both the controllers */
 static struct mutex dsi_mtx;
 
@@ -305,7 +309,8 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 		data |= ((pinfo->traffic_mode & 0x03) << 8);
 		data |= ((pinfo->dst_format & 0x03) << 4); /* 2 bits */
 		data |= (pinfo->vc & 0x03);
-#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL)
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL) \
+|| defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 		data |= BIT(31);
 #endif
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0010, data);
@@ -359,7 +364,8 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 	if (pinfo->data_lane0)
 		dsi_ctrl |= BIT(4);
 
-#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL)
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL) \
+|| defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 	MIPI_OUTP(ctrl_pdata->ctrl_base + 0xBC, 0xFFFFF);
 	MIPI_OUTP(ctrl_pdata->ctrl_base + 0xC0, 0x111);
 #endif

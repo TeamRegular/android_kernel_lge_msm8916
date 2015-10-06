@@ -1,6 +1,7 @@
 &mdss_mdp {
 	dsi_lgd_phase3_hd_incell_vid: qcom,mdss_dsi_lgd_incell_phase3_hd_video{
 		lge,has-dsv;
+		lge,display_id = <0>;
 		compatible = "qcom,mdss-dsi-panel";
 		status = "disable";
 		qcom,cont-splash-enabled;

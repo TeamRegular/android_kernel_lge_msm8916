@@ -65,7 +65,7 @@ static struct pm8xxx_cradle *cradle;
 	defined(CONFIG_MACH_MSM8916_G4STYLUSDSN_GLOBAL_COM) || defined(CONFIG_MACH_MSM8916_G4STYLUSN_GLOBAL_COM) || \
 	defined(CONFIG_MACH_MSM8916_G4STYLUSN_MPCS_US) || defined(CONFIG_MACH_MSM8916_G4STYLUSN_RGS_CA) || \
 	defined(CONFIG_MACH_MSM8916_G4STYLUSN_TMO_US) || defined(CONFIG_MACH_MSM8916_G4STYLUSN_VTR_CA)
-#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_TOUCHSCREEN_ATMEL_T1664) || defined(CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191)
+#if defined(CONFIG_TOUCHSCREEN_ATMEL_S540) || defined(CONFIG_TOUCHSCREEN_ATMEL_T1664) || defined(CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191) || defined(CONFIG_TOUCHSCREEN_MELFAS_MIT300)
 static int is_smart_cover_closed = 0; /* check status of smart cover to resize quick window area */
 int cradle_smart_cover_status(void)
 {
@@ -93,7 +93,7 @@ static void boot_cradle_det_func(void)
 	wake_lock_timeout(&cradle->wake_lock, msecs_to_jiffies(3000));
 	switch_set_state(&cradle->sdev, cradle->state);
 
-#if defined(CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191)
+#if defined(CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191) || defined(CONFIG_TOUCHSCREEN_MELFAS_MIT300)
 	is_smart_cover_closed = cradle->pouch;
 #endif
 }
@@ -183,7 +183,7 @@ static irqreturn_t pm8xxx_pouch_irq_handler(int irq, void *handle)
 	defined(CONFIG_MACH_MSM8916_G4STYLUSN_TMO_US) || defined(CONFIG_MACH_MSM8916_G4STYLUSN_VTR_CA) || \
 	defined(CONFIG_MACH_MSM8916_G4STYLUSW_KT_KR) || defined(CONFIG_MACH_MSM8939_P1BSSN_SKT_KR)|| \
 	defined(CONFIG_MACH_MSM8939_P1BSSN_BELL_CA)
-#if defined(CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191)
+#if defined(CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191) || defined(CONFIG_TOUCHSCREEN_MELFAS_MIT300)
 	is_smart_cover_closed = !gpio_get_value(cradle->pdata->hallic_pouch_detect_pin);
 	v = 1 + 1*is_smart_cover_closed;
 #else

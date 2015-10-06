@@ -370,4 +370,14 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 		     unsigned long arg);
 int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg);
+
+#ifdef CONFIG_LGE_LCD_ESD
+enum {
+	ESDRC_OK = 0,
+	ESDRC_LCD_OFF,
+	ESDRC_UNBLANK_TIMEOUT,
+};
+int lge_mdss_report_panel_dead(void);
+#endif
+
 #endif /* MDSS_FB_H */

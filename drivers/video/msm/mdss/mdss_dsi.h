@@ -302,6 +302,16 @@ enum {
 #define DSI_EV_STOP_HS_CLK_LANE		0x40000000
 #define DSI_EV_MDP_BUSY_RELEASE		0x80000000
 
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+enum {
+	DETECTION_ERROR = -1,
+	PRIMARY_MODULE,
+	SECONDARY_MODULE,
+	TERITARY_MODULE,
+	QUATENARY_MODULE,
+};
+#endif
+
 struct mdss_dsi_ctrl_pdata {
 	int ndx;	/* panel_num */
 	int (*on) (struct mdss_panel_data *pdata);
@@ -342,7 +352,7 @@ struct mdss_dsi_ctrl_pdata {
 	int disp_te_gpio;
 	int rst_gpio;
 	int disp_en_gpio;
-#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+#if defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 	int disp_lcd_ldo_1v8_gpio;
 	int disp_lcd_ldo_3v0_gpio;
 	int disp_dsv_en_gpio;
@@ -381,8 +391,14 @@ struct mdss_dsi_ctrl_pdata {
 	struct mdss_intf_recovery *recovery;
 
 	struct dsi_panel_cmds on_cmds;
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+	struct dsi_panel_cmds on_cmds_for_glanceview;
 	struct dsi_panel_cmds off_cmds;
-#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+	struct dsi_panel_cmds off_cmds_extra;
+#else
+	struct dsi_panel_cmds off_cmds;
+#endif
+#if defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 	bool do_lut_update;
 	bool is_available_esd_recovery;
 	bool is_detected_esd;

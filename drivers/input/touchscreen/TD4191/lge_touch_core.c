@@ -81,6 +81,11 @@ extern bool i2c_suspended;
 
 extern bool wakeup_by_swipe;
 
+#if defined(CONFIG_LGE_MODULE_DETECT)
+#define TD4191	0
+#define MIT300	1
+#endif
+
 extern void touch_enable_irq(unsigned int irq);
 extern void touch_disable_irq(unsigned int irq);
 
@@ -2773,6 +2778,16 @@ static ssize_t store_use_quick_window(struct i2c_client *client,
 	return count;
 }
 
+#if defined(CONFIG_LGE_MODULE_DETECT)
+static ssize_t show_module_id(struct i2c_client *client, char *buf)
+{
+	int ret = 0;
+	TOUCH_INFO_MSG("Module id is TD4191\n");
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", TD4191);
+
+	return ret;
+}
+#endif
 static LGE_TOUCH_ATTR(platform_data,
 		S_IRUGO | S_IWUSR, show_platform_data, store_platform_data);
 static LGE_TOUCH_ATTR(power_ctrl, S_IRUGO | S_IWUSR, show_power_ctrl, store_power_ctrl);
@@ -2803,6 +2818,9 @@ static LGE_TOUCH_ATTR(lpwg_debug_reason, S_IRUGO | S_IWUSR,
 		show_lpwg_debug_reason, store_lpwg_debug_reason);
 static LGE_TOUCH_ATTR(use_quick_window, S_IRUGO | S_IWUSR,
 		NULL, store_use_quick_window);
+#if defined(CONFIG_LGE_MODULE_DETECT)
+static LGE_TOUCH_ATTR(module_id, S_IRUGO | S_IWUSR, show_module_id, NULL);
+#endif
 
 static struct attribute *lge_touch_attribute_list[] = {
 	&lge_touch_attr_platform_data.attr,
@@ -2824,6 +2842,9 @@ static struct attribute *lge_touch_attribute_list[] = {
 	&lge_touch_attr_lpwg_all.attr,
 	&lge_touch_attr_lpwg_debug_reason.attr,
 	&lge_touch_attr_use_quick_window.attr,
+#if defined(CONFIG_LGE_MODULE_DETECT)
+	&lge_touch_attr_module_id.attr,
+#endif
 	NULL,
 };
 
@@ -3760,13 +3781,22 @@ static struct i2c_driver lge_touch_driver = {
 		.pm	= &touch_pm_ops,
 	},
 };
-
+#ifdef CONFIG_LGE_MODULE_DETECT
+extern int get_display_id(void);
+#endif
 int touch_driver_register(struct touch_device_driver *driver,
 		struct of_device_id *match_table)
 {
 	int ret = 0;
 	TOUCH_TRACE();
 
+#ifdef CONFIG_LGE_MODULE_DETECT
+	if (get_display_id() != TD4191) {
+		ret = -EMLINK;
+		TOUCH_INFO_MSG("This panel is not TD4191. get_display_id() = %d\n", get_display_id());
+		goto err_touch_driver_register;
+	}
+#endif
 	touch_device_func = driver;
 	ASSIGN(touch_wq = create_singlethread_workqueue("touch_wq"),
 			err_create_workqueue);
@@ -3778,6 +3808,9 @@ int touch_driver_register(struct touch_device_driver *driver,
 err_i2c_add_driver:
 	destroy_workqueue(touch_wq);
 err_create_workqueue:
+#ifdef CONFIG_LGE_MODULE_DETECT
+err_touch_driver_register:
+#endif
 	return ret;
 }
 

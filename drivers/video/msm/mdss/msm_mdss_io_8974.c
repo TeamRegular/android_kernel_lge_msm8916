@@ -962,6 +962,11 @@ static void mdss_dsi_link_clk_stop(struct mdss_dsi_ctrl_pdata *ctrl)
  * DSI Ultra-Low Power State (ULPS). This function assumes that the link and
  * bus clocks are already on.
  */
+
+#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+extern int lcd_syna_dongbu_d_ic_id;
+#endif
+
 static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	int enable)
 {
@@ -1007,9 +1012,11 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 
 #ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+  if (lcd_syna_dongbu_d_ic_id != SECONDARY_MODULE) {
 	tmp = MIPI_INP(ctrl->ctrl_base + 0x00AC);
 	MIPI_OUTP(ctrl->ctrl_base + 0x0AC, tmp & ~BIT(28));
 	udelay(100);
+   }
 #endif
 
 	/* clock lane will always be programmed for ulps */

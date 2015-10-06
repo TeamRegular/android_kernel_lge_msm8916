@@ -11,6 +11,7 @@
  */
 
 #include "../msm8916-lge-common/dsi-panel-lgd-phase3-720p-video.dtsi"
+#include "../msm8916-lge-common/dsi-panel-lgd-db7400-720p-video.dtsi"
 
 &mdss_mdp {
        qcom,mdss-pref-prim-intf = "dsi";
@@ -22,8 +23,12 @@
        qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 };
 
+&dsi_lgd_db7400_hd_incell_vid {
+       qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+};
+
 &mdss_dsi0 {
-       qcom,dsi-pref-prim-pan = <&dsi_lgd_phase3_hd_incell_vid>;
+       qcom,dsi-pref-prim-pan = <&dsi_lgd_db7400_hd_incell_vid>;
        pinctrl-names = "mdss_default", "mdss_sleep";
        pinctrl-0 = <&mdss_dsi_active>;
        pinctrl-1 = <&mdss_dsi_suspend>;

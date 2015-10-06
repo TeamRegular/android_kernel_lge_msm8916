@@ -50,6 +50,12 @@ config DTS_TARGET
 
 menu "LGE Specific Patches"
 
+config LGE_MODULE_DETECT
+	bool "Enable Module detection"
+	default n
+	help
+	Feature for read device maker id, like lcd or touch maker
+
 config LGE_ENABLE_THERMAL_CORE_CONTROL
         bool "Thermal Core Control"
         default n

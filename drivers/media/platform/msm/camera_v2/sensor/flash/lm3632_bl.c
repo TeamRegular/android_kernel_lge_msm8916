@@ -147,7 +147,7 @@ void lm3632_dsv_fd_ctrl(int dsv_fd)
 	/* set fd to float */
 	lm3632_write_reg(main_lm3632_dev->client, 0x0C, 0x01);
 }
-#elif defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL)
+#elif defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 static int lm3632_read_reg(struct i2c_client *client, u8 reg, u8 *buf);
 void lm3632_set_knock_on_mode(void)
 {
@@ -156,9 +156,18 @@ void lm3632_set_knock_on_mode(void)
 		pr_err("%s : lm3632_dev is null ", __func__);
 		return;
 	}
+
+#if 0//defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+	lm3632_write_reg(main_lm3632_dev->client, 0x0C, 0x00);//Standby mode
+	lm3632_write_reg(main_lm3632_dev->client, 0x0D, 0x10);//Boost
+	lm3632_write_reg(main_lm3632_dev->client, 0x0E, 0x14);//VSP 5.0V
+	lm3632_write_reg(main_lm3632_dev->client, 0x0F, 0x14);//VSN -5.0V
+	lm3632_write_reg(main_lm3632_dev->client, 0x0C, 0x01);// GPIO mode
+#else
 	lm3632_write_reg(main_lm3632_dev->client, 0x0C, 0x00);
 	lm3632_write_reg(main_lm3632_dev->client, 0x0F, 0x00);
 	lm3632_write_reg(main_lm3632_dev->client, 0x0C, 0x01);
+#endif
 #endif
 	return;
 }
@@ -170,9 +179,18 @@ void lm3632_unset_knock_on_mode(void)
 		pr_err("%s : lm3632_dev is null ", __func__);
 		return;
 	}
+
+#if 0//defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+	lm3632_write_reg(main_lm3632_dev->client, 0x0C, 0x00);//Standby mode
+	lm3632_write_reg(main_lm3632_dev->client, 0x0D, 0x1E);//Boost 6V
+	lm3632_write_reg(main_lm3632_dev->client, 0x0F, 0x1E);//VSP 5.5V
+	lm3632_write_reg(main_lm3632_dev->client, 0x0E, 0x1E);//VSN -5.5V
+	lm3632_write_reg(main_lm3632_dev->client, 0x0C, 0x01);//GPIO mode
+#else
 	lm3632_write_reg(main_lm3632_dev->client, 0x0C, 0x00);
 	lm3632_write_reg(main_lm3632_dev->client, 0x0F, 0x1E);
 	lm3632_write_reg(main_lm3632_dev->client, 0x0C, 0x01);
+#endif
 #endif
 	return;
 }
@@ -463,7 +481,7 @@ void lm3632_backlight_on(int level)
 		bl_ctrl = 0;
 		lm3632_read_reg(main_lm3632_dev->client, 0x0A, &bl_ctrl);
 #if defined(CONFIG_LGE_G4STYLUS_CAMERA) || \
-		defined(CONFIG_JDI_INCELL_VIDEO_FHD_PANEL)
+		defined(CONFIG_JDI_INCELL_VIDEO_FHD_PANEL) || defined(CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 		bl_ctrl |= 0x09;
 #else
 		bl_ctrl |= 0x11;
@@ -848,7 +866,7 @@ static int lm3632_probe(struct i2c_client *i2c_dev,
 	if (pdata->bl_gpio && gpio_request(pdata->bl_gpio, "lm3632 en") != 0) {
 		return -ENODEV;
 	}
-#if !defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL)
+#if !defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) && !defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 	if (pdata->dsv_p_gpio && gpio_request(pdata->dsv_p_gpio, "lm3632 dsv p") != 0) {
 		return -ENODEV;
 	}

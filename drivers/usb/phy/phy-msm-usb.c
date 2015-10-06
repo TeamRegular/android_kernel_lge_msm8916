@@ -98,6 +98,12 @@ enum msm_otg_phy_reg_mode {
 extern void update_status(int code, int value);
 #endif
 
+#ifdef CONFIG_LGE_MODULE_DETECT
+extern int get_display_id(void);
+#define TD4191	0
+#define MIT300	1
+#endif
+
 static char *override_phy_init;
 module_param(override_phy_init, charp, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(override_phy_init,
@@ -1743,9 +1749,18 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 	prev_charger_type = charger_type;
 #endif
 
-#ifdef CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191
+#if defined (CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191)
+#ifdef CONFIG_LGE_MODULE_DETECT
+	if (get_display_id() == TD4191) {
+		update_status(1, motg->chg_type);
+	} else {
+		/* MIT300 */
+	}
+#else
 	update_status(1, motg->chg_type);
 #endif
+#endif
+
 #ifdef CONFIG_LGE_PM_CHARGING_BQ24262_CHARGER
 	if (charger_type < POWER_SUPPLY_TYPE_USB && charger_type > POWER_SUPPLY_TYPE_BATTERY)
 		return -EINVAL;

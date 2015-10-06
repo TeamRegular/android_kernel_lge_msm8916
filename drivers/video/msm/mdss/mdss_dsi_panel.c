@@ -33,6 +33,16 @@ struct mdss_panel_data *pdata_lut_update;
 extern void lm3632_dsv_output_ctrl(int enable);
 #endif
 
+#ifdef CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL
+extern void lm3632_set_knock_on_mode(void);
+extern void lm3632_unset_knock_on_mode(void);
+extern void lm3632_UVP_enable(void);
+extern void lm3632_dsv_output_ctrl(int enable);
+#ifdef CONFIG_TOUCHSCREEN_MELFAS_MIT300
+extern void reset_pin_ctrl(int on_off, int delay);
+#endif
+#endif
+
 #ifdef CONFIG_LGE_PM_PWR_KEY_FOR_CHG_LOGO
 #include <mach/board_lge.h>
 void qpnp_goto_suspend_for_chg_logo(void);
@@ -77,6 +87,18 @@ extern struct lge_touch_data *ts_data;
 extern struct synaptics_ts_data *syna_ts_data;
 extern bool wakeup_by_swipe;
 extern int print_tci_debug_result(struct synaptics_ts_data *ts, int num);
+#endif
+#ifdef CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL
+extern struct mutex	*mit_thread_lock;
+extern bool wakeup_by_swipe_mit300;
+#endif
+
+#if defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+int lcd_syna_dongbu_d_ic_id = PRIMARY_MODULE;
+int get_display_id(void)
+{
+	return lcd_syna_dongbu_d_ic_id;
+}
 #endif
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -261,7 +283,7 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc = 0;
 
-#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL)
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 // Do nothing
 #elif defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL)
 	if (is_first_request == 0) {
@@ -321,7 +343,7 @@ bklt_en_gpio_err:
 		gpio_free(ctrl_pdata->rst_gpio);
 rst_gpio_err:
 	return rc;
-#elif defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL)
+#elif defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 mode_gpio_err:
 	if (gpio_is_valid(ctrl_pdata->bklt_en_gpio))
 		gpio_free(ctrl_pdata->bklt_en_gpio);
@@ -378,7 +400,19 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 		if (!pinfo->cont_splash_enabled) {
 #if defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL)
 			rc = gpio_direction_output(ctrl_pdata->rst_gpio, 0);
-#elif defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL)
+#elif defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+		if(lcd_syna_dongbu_d_ic_id == SECONDARY_MODULE)
+		{
+			if (mit_thread_lock != NULL)
+				mutex_lock(mit_thread_lock);
+			pr_info("[LCD] wakeup_by_swipe_mit300 = [%d]\n", wakeup_by_swipe_mit300);
+			if (wakeup_by_swipe_mit300== false) {
+				if (gpio_is_valid(ctrl_pdata->rst_gpio)) {
+					gpio_set_value((ctrl_pdata->rst_gpio), 0);
+				}
+			}
+			usleep(2 * 1000);//min 1 ms
+		} else 	{
 #ifdef LGD_INCELL_PHASE3_APPLY_POWER_SEQUENCE
 			if (ts_data != NULL) {
 				if (syna_ts_data != NULL) {
@@ -434,10 +468,13 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				pr_info("[LCD] Skip power control in case of wakeup_by_swipe \n");
 			}
 #endif //LGD_INCELL_PHASE3_APPLY_POWER_SEQUENCE
+		}
 #else
 			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 				gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
 #endif
+#if defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+		if(lcd_syna_dongbu_d_ic_id != SECONDARY_MODULE) {
 			pr_info("[LCD] Start reset control when LCD on\n");
 			for (i = 0; i < pdata->panel_info.rst_seq_len; ++i) {
 				gpio_set_value((ctrl_pdata->rst_gpio),
@@ -446,7 +483,44 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 					usleep(pinfo->rst_seq[i] * 1000);
 			}
 			pr_info("[LCD] End reset control when LCD on\n");
-
+		}
+#else
+			pr_info("[LCD] Start reset control when LCD on\n");
+			for (i = 0; i < pdata->panel_info.rst_seq_len; ++i) {
+				gpio_set_value((ctrl_pdata->rst_gpio),
+					pdata->panel_info.rst_seq[i]);
+				if (pdata->panel_info.rst_seq[++i])
+					usleep(pinfo->rst_seq[i] * 1000);
+			}
+			pr_info("[LCD] End reset control when LCD on\n");
+#endif
+#if defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+		if(lcd_syna_dongbu_d_ic_id == SECONDARY_MODULE) {
+		  if (wakeup_by_swipe_mit300 == false) {
+			//reset_pin_ctrl(1, 0);
+			usleep(2*1000);
+			if (gpio_is_valid(ctrl_pdata->rst_gpio)) {
+			    gpio_set_value((ctrl_pdata->rst_gpio), 0);
+			}
+			usleep(2*1000);
+			if (gpio_is_valid(ctrl_pdata->rst_gpio)) {
+			    gpio_set_value((ctrl_pdata->rst_gpio), 1);
+			}
+			usleep(2*1000);
+			if (gpio_is_valid(ctrl_pdata->rst_gpio)) {
+			    gpio_set_value((ctrl_pdata->rst_gpio), 0);
+			}
+			usleep(2*1000);
+			if (gpio_is_valid(ctrl_pdata->rst_gpio)) {
+			    gpio_set_value((ctrl_pdata->rst_gpio), 1);
+			}
+		  } else {
+			pr_info("[LCD] Skip power control in case of wakeup_by_swipe_mit300 \n");
+		  }
+			usleep(30*1000);
+		}
+			pr_info("[LCD] End LCD power up when LCD on\n");
+#endif
 			if (gpio_is_valid(ctrl_pdata->bklt_en_gpio))
 				gpio_set_value((ctrl_pdata->bklt_en_gpio), 1);
 		}
@@ -468,7 +542,8 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			gpio_set_value((ctrl_pdata->bklt_en_gpio), 0);
 			gpio_free(ctrl_pdata->bklt_en_gpio);
 		}
-#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL)
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined(CONFIG_LGD_INCELL_VIDEO_FWVGA_PT_PANEL) \
+|| defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 		//do nothing
 #else
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
@@ -987,7 +1062,25 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	pr_info("[LCD] %s: INCELL_PANEL", __func__);
 	if (ctrl->on_cmds.cmd_cnt)        
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
-#elif defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL)
+#elif defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+  if (lcd_syna_dongbu_d_ic_id == SECONDARY_MODULE)
+  {
+	msleep(30);//min 20ms (OTP auto read)
+	if (wakeup_by_swipe_mit300 == false) {
+		pr_info("[LCD] Start send on command\n");
+		if (ctrl->on_cmds.cmd_cnt)
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+		pr_info("[LCD] End send on command\n");
+	} else {
+		pr_info("[LCD] Start send on command for GlanceView\n");
+		if (ctrl->on_cmds_for_glanceview.cmd_cnt)
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds_for_glanceview);
+		pr_info("[LCD] End send on command for GlanceView\n");
+		wakeup_by_swipe_mit300 = false;
+	}
+	if ((mit_thread_lock != NULL) && mutex_is_locked(mit_thread_lock))
+		mutex_unlock(mit_thread_lock);
+  } else {
 #ifdef LGD_INCELL_PHASE3_APPLY_POWER_SEQUENCE
 	msleep(150);
 #endif //LGD_INCELL_PHASE3_APPLY_POWER_SEQUENCE
@@ -1000,6 +1093,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	if ((ts_data != NULL) && mutex_is_locked(&ts_data->pdata->thread_lock))
 		mutex_unlock(&ts_data->pdata->thread_lock);
 #endif //LGD_INCELL_PHASE3_APPLY_POWER_SEQUENCE
+  }
 #else
 	pr_info("[LCD] send on command\n");
 	if (ctrl->on_cmds.cmd_cnt)
@@ -1055,14 +1149,26 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	}
 
 	if (ctrl->off_cmds.cmd_cnt) {
-#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
-	        if (ts_data != NULL) {
-		        mutex_lock(&ts_data->pdata->thread_lock);
+#if defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+	  if (lcd_syna_dongbu_d_ic_id == SECONDARY_MODULE)
+	  {
+		if (mit_thread_lock != NULL)
+			mutex_lock(mit_thread_lock);
+		pr_info("[LCD] send off command\n");
+		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
+		if ((mit_thread_lock != NULL) && mutex_is_locked(mit_thread_lock))
+			mutex_unlock(mit_thread_lock);
+		mdelay(140);//min 120
+		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds_extra);
+	  } else {
+		if (ts_data != NULL) {
+			mutex_lock(&ts_data->pdata->thread_lock);
 		}
 		pr_info("[LCD] send off command\n");
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
 	        if ((ts_data != NULL) && mutex_is_locked(&ts_data->pdata->thread_lock))
 		        mutex_unlock(&ts_data->pdata->thread_lock);
+	  }
 #else
 		pr_info("[LCD] send off command\n");
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
@@ -1764,6 +1870,22 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	}
 	pinfo->yres = (!rc ? tmp : 480);
 
+#if defined(CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined (CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
+	{
+		u32 temp;
+		rc = of_property_read_u32(np, "lge,display_id", &temp);
+		if (rc) {
+			pr_err("%s: unable to get display_id %d", __func__, rc);
+			return rc;
+		}
+		pr_info("display_id = %d\n", temp);
+		pinfo->display_id = temp;
+		lcd_syna_dongbu_d_ic_id = temp;
+		pr_err("%s:%d, display ID = [ %d ] \n",
+						__func__, __LINE__, lcd_syna_dongbu_d_ic_id);
+	}
+#endif
+
 	rc = of_property_read_u32(np,
 		"qcom,mdss-pan-physical-width-dimension", &tmp);
 	pinfo->physical_width = (!rc ? tmp : 0);
@@ -2051,10 +2173,24 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->on_cmds,
 		"qcom,mdss-dsi-on-command", "qcom,mdss-dsi-on-command-state");
 
+#ifdef CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL
+  if (lcd_syna_dongbu_d_ic_id == SECONDARY_MODULE) {
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->on_cmds_for_glanceview,
+		"qcom,mdss-dsi-on-command-for-glanceview", "qcom,mdss-dsi-on-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
+		"qcom,mdss-dsi-off-command1", "qcom,mdss-dsi-off-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds_extra,
+		"qcom,mdss-dsi-off-command2", "qcom,mdss-dsi-off-command-state");
+  } else {
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
 		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");
+  }
+#else
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
+		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");
+#endif
 
-#ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+#if defined (CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL) || defined(CONFIG_LGD_DONGBU_INCELL_VIDEO_HD_PANEL)
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->lut_update_cmds,
 		"qcom,mdss-dsi-lut-update-command", "qcom,mdss-dsi-lut-update-command-state");
 	pinfo->mipi.force_clk_lane_hs =
@@ -2162,8 +2298,10 @@ int mdss_dsi_panel_init(struct device_node *node,
 	ctrl_pdata->panel_data.set_backlight = mdss_dsi_panel_bl_ctrl;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
 #ifdef CONFIG_LGD_INCELL_PHASE3_VIDEO_HD_PT_PANEL
+  if (lcd_syna_dongbu_d_ic_id != SECONDARY_MODULE) {
 	if(pinfo->cont_splash_enabled)
 		ctrl_pdata->is_available_esd_recovery = 1;
+  }
 #endif
 
 	return 0;

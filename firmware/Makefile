@@ -27,6 +27,12 @@ else
 acenic-objs := acenic/tg1.bin acenic/tg2.bin
 endif
 
+ifdef CONFIG_TOUCHSCREEN_MELFAS_MIT300
+mit300_fw_file := $(wildcard $(srctree)/firmware/melfas/mit300/*)
+mit300_firmware := $(subst $(srctree)/firmware/,,$(mit300_fw_file))
+fw-shipped-$(CONFIG_TOUCHSCREEN_MELFAS_MIT300) += $(mit300_firmware)
+endif
+
 ifdef CONFIG_TOUCHSCREEN_LGE_SYNAPTICS_TD4191
 synaptics_img_file := $(wildcard $(srctree)/firmware/synaptics/lions/*.img)
 synaptics_img_file += $(wildcard $(srctree)/firmware/synaptics/lions/*.bin)

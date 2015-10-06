@@ -13,6 +13,10 @@
 &i2c_5 {
 	qcom,clk-freq-out = <400000>;
 
+	melfas_mit300@34 {
+		status = "ok";
+	};
+
 	synaptics_td4191_dsx@20 {
 		status = "disable";
 	};
